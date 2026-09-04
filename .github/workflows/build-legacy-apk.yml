@@ -1,13 +1,19 @@
-name: Build APK
+name: Build Legacy WebView APK
 
 on:
   push:
     branches: ["**"]
+    paths:
+      - "legacy-webview/**"
+      - ".github/workflows/build-legacy-apk.yml"
   workflow_dispatch:
 
 jobs:
   apk:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: legacy-webview
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -27,5 +33,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Ironwake-debug
-          path: app/build/outputs/apk/debug/*.apk
+          name: Ironwake-legacy-webview-debug
+          path: legacy-webview/app/build/outputs/apk/debug/*.apk
