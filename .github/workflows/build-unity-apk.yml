@@ -56,7 +56,7 @@ jobs:
           UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
         with:
           projectPath: unity/Ironwake
-          unityVersion: 6000.0.25f1
+          unityVersion: 6000.0.23f1
           targetPlatform: Android
           androidExportType: apk
           buildName: Ironwake
