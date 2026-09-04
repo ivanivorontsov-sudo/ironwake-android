@@ -1,19 +1,19 @@
 # Scenes
 
-Placeholders. Open the project in **Unity Hub** (Unity 6 recommended, or 2022.3 LTS with URP package aligned) — the Editor will regenerate `Library/` and can rebuild scene YAML.
+Placeholders. Open in **Unity Hub** (Unity 6 or 2022.3 LTS) — Editor regenerates `Library/`.
 
 | Scene | Purpose | Bootstrap |
 |-------|---------|-----------|
-| `Hangar.unity` | Meta: currencies, garage, shop, achievements, Google auth stub | Add empty GO + `HangarUI` |
-| `Battle.unity` | Combat: last-stand room vs live server | Add empty GO + `BattleBootstrap` |
+| `Hangar.unity` | Сталь / Разведка / Награды, catalog, «В БОЙ» | `Meta/HangarUI` |
+| `Battle.unity` | laststand vs live server, HTTP poll 10–20 Hz | `Combat/BattleBootstrap` |
 
-Both scenes are listed in `ProjectSettings/EditorBuildSettings.asset`.
+Both listed in `EditorBuildSettings.asset` (Hangar = 0).
 
-## Quick wire-up after first open
+## Wire-up
 
-1. Create scene **Hangar**: Directional Light + empty `Hangar` with `Meta/HangarUI`.
-2. Create scene **Battle**: empty `Battle` with `Combat/BattleBootstrap` (it spawns ground/sun/vehicle).
-3. File → Build Settings → add both scenes (order: Hangar = 0).
-4. Enter Play Mode in Hangar → «В БОЙ».
+1. Hangar: Directional Light + empty GO + `HangarUI`.
+2. Battle: empty GO + `BattleBootstrap` (spawns ground/sun/vehicle/remotes).
+3. Play Hangar → «В БОЙ». Camera toggle **V**. Death → spectator (no respawn).
 
-Until scenes are authored, `HangarUI` can boot a primitive battle in-place if `battleSceneName` is cleared.
+Live Beget: WS blocked → client auto-falls back to HTTP `/room/*`.
+If `battleSceneName` missing, Hangar boots battle in-place.

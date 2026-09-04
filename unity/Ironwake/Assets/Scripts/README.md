@@ -2,13 +2,13 @@
 
 | Path | Role |
 |------|------|
-| `Net/IronwakeClient.cs` | WS + HTTP poll client → `biker9td.beget.tech` |
-| `Combat/VehicleController.cs` | Tank inertia, turret lag, FPS + chase cams |
-| `Combat/ModuleDamagePresenter.cs` | Zone hits, fire, track break, cook-off |
-| `Combat/ProjectileVisual.cs` | Shell tracer |
-| `Combat/BattleBootstrap.cs` | Battle scene entry / remote ghosts |
-| `Vehicles/VehicleCatalog.cs` | Tank, APC, heli, plane placeholders |
-| `Meta/HangarUI.cs` | Сталь / Разведка / Награды, shop, achievements |
-| `Meta/GoogleAuthPlaceholder.cs` | Android Google Sign-In setup notes |
+| `Net/IronwakeClient.cs` | WS prefer → HTTP join/input/state poll 10–20 Hz; control-only input; events |
+| `Combat/VehicleController.cs` | Prediction + soft-correct; FPS/chase (V); spectator; SpawnPrimitive by class |
+| `Combat/ModuleDamagePresenter.cs` | All PROTOCOL modules; VFX hooks; UGUI strip + OnGUI |
+| `Combat/ProjectileVisual.cs` | Server tracers + ProjectilePresenter |
+| `Combat/BattleBootstrap.cs` | Wire client, local player, RemoteUnitView, match end |
+| `Vehicles/VehicleCatalog.cs` | `GET /catalog/vehicles` + fallback |
+| `Meta/HangarUI.cs` | Wallet + catalog list + Start Battle |
+| `Meta/GoogleAuthPlaceholder.cs` | Guest / Google ID token notes |
 
-Namespaces: `Ironwake.Net`, `Ironwake.Combat`, `Ironwake.Vehicles`, `Ironwake.Meta`.
+Protocol sister: ironwake-server `PROTOCOL.md`. Live Beget requires HTTP poll.
