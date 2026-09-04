@@ -1,0 +1,70 @@
+name: Build Unity Android APK
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: unity-android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Unity Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Unity license secrets
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        run: |
+          if [ -n "$UNITY_LICENSE" ] || { [ -n "$UNITY_SERIAL" ] && [ -n "$UNITY_EMAIL" ] && [ -n "$UNITY_PASSWORD" ]; }; then
+            echo "Unity license secrets present"
+          else
+            echo "::error::Нет секретов лицензии Unity. Settings → Secrets and variables → Actions → New repository secret. Personal: UNITY_LICENSE (см. https://game.ci/docs/github/activation ). Plus/Pro: UNITY_EMAIL, UNITY_PASSWORD, UNITY_SERIAL."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          tool-cache: false
+          android: false
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+
+      - uses: actions/cache@v4
+        with:
+          path: unity/Ironwake/Library
+          key: Library-Ironwake-Android-${{ hashFiles('unity/Ironwake/Packages/manifest.json', 'unity/Ironwake/ProjectSettings/ProjectVersion.txt') }}
+          restore-keys: |
+            Library-Ironwake-Android-
+
+      - name: Build debug APK
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+          UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
+        with:
+          projectPath: unity/Ironwake
+          unityVersion: 6000.0.25f1
+          targetPlatform: Android
+          androidExportType: apk
+          buildName: Ironwake
+          allowDirtyBuild: true
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Ironwake-Unity-debug
+          path: build/Android
+          if-no-files-found: error
