@@ -38,13 +38,14 @@
 </div>
 <script>
 const q = new URLSearchParams(location.search);
-const API = (q.get("api") || (location.protocol.startsWith("http") && location.hostname !== "localhost" ? location.origin : "http://biker9td.beget.tech")).replace(/\/$/,"");
+const API = (q.get("api") || (location.protocol.startsWith("http") && location.host.indexOf("biker9td") >= 0 ? location.origin : "http://biker9td.beget.tech")).replace(/\/$/,"");
 const st = document.getElementById("st");
 const canvas = document.getElementById("c");
 const ctx = canvas.getContext("2d");
-let units = [], yaw = 0, vx = 0, vz = 0, x = 12, z = 180, fireUntil = 0, joined = false;
+let units = [], yaw = 0, vx = 0, vz = 0, x = 8, z = 22, fireUntil = 0, joined = false, team = "blue";
 const id = "a" + Math.random().toString(36).slice(2, 8);
 const room = "public";
+const SCALE = 14;
 function setSt(ok, t){ st.className = ok ? "ok" : "bad"; st.textContent = t; }
 function resize(){ canvas.width = innerWidth * devicePixelRatio; canvas.height = innerHeight * devicePixelRatio; }
 addEventListener("resize", resize); resize();
@@ -60,7 +61,9 @@ async function connect(){
     const j = await r.json();
     if (!j.ok) throw new Error(j.error || "join fail");
     joined = true;
-    setSt(true, "в бою · HTTP · " + j.team);
+    team = j.team || "blue";
+    if (team === "red") { x = -8; z = -22; }
+    setSt(true, "в бою · " + team + " · танк в центре");
   } catch (e) {
     setSt(false, "join: " + e.message);
   }
@@ -84,6 +87,9 @@ function stick(ev){
   yaw = Math.atan2(dx, -dy);
 }
 function resetStick(){ vx=0; vz=0; knob.style.left="43px"; knob.style.top="43px"; }
+pad.addEventListener("pointerdown", stick);
+pad.addEventListener("pointermove", (e)=>{ if (e.buttons) stick(e); });
+pad.addEventListener("pointerup", resetStick);
 pad.addEventListener("touchstart", stick, {passive:true});
 pad.addEventListener("touchmove", stick, {passive:true});
 pad.addEventListener("touchend", resetStick);
@@ -93,8 +99,8 @@ document.getElementById("fire").onclick = () => {
   sendInput(target ? { hit: { target: target.id, module: "hull_front", damage: 90 } } : {});
 };
 setInterval(() => {
-  x += vx * 2.2;
-  z += vz * 2.2;
+  x += vx * 1.4;
+  z += vz * 1.4;
   sendInput();
 }, 80);
 setInterval(async () => {
@@ -102,37 +108,41 @@ setInterval(async () => {
     const r = await fetch(API + "/room/state?room=" + room);
     const j = await r.json();
     units = (j.payload && j.payload.units) || [];
-    const ev = (j.events || []).slice(-1)[0];
-    if (ev && ev.type !== "join") {
-      if (ev.type === "end") setSt(false, "бой окончен: " + ev.payload.winner);
-    }
+    const mine = units.find(u => u.id === id);
+    if (mine) { x = mine.x; z = mine.z; yaw = mine.yaw; }
   } catch {}
 }, 120);
+function drawTank(u, isMe){
+  ctx.save();
+  ctx.translate(u.x * SCALE, -u.z * SCALE);
+  ctx.rotate(u.yaw || 0);
+  ctx.globalAlpha = u.alive === false ? .35 : 1;
+  ctx.fillStyle = isMe ? "#d7c48a" : (u.team === "blue" ? "#4a7aa8" : "#a85a4a");
+  ctx.fillRect(-12, -20, 24, 40);
+  ctx.fillStyle = "#1a1c16";
+  ctx.fillRect(-4, -26, 8, 22);
+  ctx.restore();
+  ctx.fillStyle = "#e8e4d8";
+  ctx.font = "12px sans-serif";
+  ctx.fillText((u.callsign || u.id) + " " + Math.max(0, Math.round(u.hp || 0)), u.x * SCALE - 22, -u.z * SCALE - 28);
+}
 function draw(){
   requestAnimationFrame(draw);
   const w = canvas.width, h = canvas.height;
   ctx.fillStyle = "#12140f"; ctx.fillRect(0,0,w,h);
   ctx.save();
-  ctx.translate(w/2, h*0.55);
-  const s = Math.min(w,h)/420;
-  ctx.scale(s,s);
+  ctx.translate(w/2, h * 0.52);
+  ctx.translate(-x * SCALE, z * SCALE);
   ctx.strokeStyle = "#2a2d24"; ctx.lineWidth = 2;
-  for (let i=-8;i<=8;i++){ ctx.beginPath(); ctx.moveTo(i*40,-320); ctx.lineTo(i*40,320); ctx.stroke(); ctx.beginPath(); ctx.moveTo(-320,i*40); ctx.lineTo(320,i*40); ctx.stroke(); }
-  for (const u of units){
-    ctx.save();
-    ctx.translate(u.x*6, -u.z*6);
-    ctx.rotate(u.yaw||0);
-    ctx.fillStyle = u.team==="blue" ? "#4a7aa8" : "#a85a4a";
-    if (u.id===id) ctx.fillStyle = "#c4b48a";
-    if (!u.alive) ctx.globalAlpha = .35;
-    ctx.fillRect(-10,-16,20,32);
-    ctx.fillStyle = "#222"; ctx.fillRect(-3,-22,6,18);
-    ctx.restore();
-    ctx.fillStyle = "#e8e4d8"; ctx.font = "10px sans-serif";
-    ctx.fillText((u.callsign||u.id)+" "+Math.max(0,Math.round(u.hp||0)), u.x*6-18, -u.z*6-22);
+  for (let i = -20; i <= 20; i++) {
+    ctx.beginPath(); ctx.moveTo(i * 40, -800); ctx.lineTo(i * 40, 800); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-800, i * 40); ctx.lineTo(800, i * 40); ctx.stroke();
   }
+  const list = units.slice();
+  if (!list.some(u => u.id === id)) list.push({ id, x, z, yaw, team, hp: 1800, alive: true, callsign: "ANDROID" });
+  for (const u of list) drawTank(u, u.id === id);
   ctx.restore();
-  if (performance.now() < fireUntil){
+  if (performance.now() < fireUntil) {
     ctx.fillStyle = "rgba(200,80,40,.18)"; ctx.fillRect(0,0,w,h);
   }
 }
