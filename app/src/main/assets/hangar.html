@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no"/>
+  <title>IRONWAKE</title>
+  <style>
+    html,body{margin:0;height:100%;background:#0c0d0c;color:#e8e4d8;font-family:system-ui,sans-serif;overflow:hidden}
+    #ui{position:absolute;inset:0;display:flex;flex-direction:column;pointer-events:none}
+    header{padding:10px 14px;display:flex;justify-content:space-between;gap:12px;pointer-events:auto}
+    .muted{color:#9a9a8c;font-size:12px;letter-spacing:.18em;text-transform:uppercase}
+    h1{margin:0;font-size:22px}
+    #st{font-size:13px}
+    .ok{color:#7aa06c}.bad{color:#c07060}
+    canvas{display:block;width:100%;height:100%;touch-action:none}
+    #dock{position:absolute;left:0;right:0;bottom:0;padding:12px;display:flex;justify-content:space-between;align-items:flex-end;pointer-events:none}
+    .pad{width:132px;height:132px;border:1px solid #3a3d36;border-radius:50%;background:#161714cc;pointer-events:auto;position:relative}
+    .knob{width:46px;height:46px;border-radius:50%;background:#c4b48a;position:absolute;left:43px;top:43px}
+    #fire{width:86px;height:86px;border-radius:50%;border:0;background:#8b3a32;color:#f3eee2;font-weight:700;pointer-events:auto}
+    #join{pointer-events:auto;background:#2b3326;color:#e8e4d8;border:1px solid #5a6a4a;padding:8px 14px}
+  </style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="ui">
+  <header>
+    <div>
+      <p class="muted">Combat client</p>
+      <h1>IRONWAKE</h1>
+      <div id="st" class="muted">подключение…</div>
+    </div>
+    <button id="join">В БОЙ</button>
+  </header>
+  <div id="dock">
+    <div class="pad" id="pad"><div class="knob" id="knob"></div></div>
+    <button id="fire">ОГОНЬ</button>
+  </div>
+</div>
+<script>
+const q = new URLSearchParams(location.search);
+const API = q.get("api") || "http://biker9td.beget.tech";
+const WS = q.get("ws") || "ws://biker9td.beget.tech/ws";
+const st = document.getElementById("st");
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+let me = null, units = [], ws = null, yaw = 0, vx = 0, vz = 0;
+let x = 12, z = 180, fireUntil = 0;
+const id = "a" + Math.random().toString(36).slice(2, 8);
+function setSt(ok, t){ st.className = ok ? "ok" : "bad"; st.textContent = t; }
+function resize(){ canvas.width = innerWidth * devicePixelRatio; canvas.height = innerHeight * devicePixelRatio; }
+addEventListener("resize", resize); resize();
+fetch(API + "/health").then(r=>r.json()).then(j=>{
+  setSt(j.ok, j.ok ? "сервер и база живы" : ("база: " + (j.error||"down")));
+}).catch(()=>setSt(false, "сервер недоступен"));
+function connect(){
+  if (ws && ws.readyState < 2) return;
+  ws = new WebSocket(WS);
+  ws.onopen = () => {
+    setSt(true, "сокет открыт");
+    ws.send(JSON.stringify({ type:"join", room:"public", mode:"laststand", userId:id, callsign:"ANDROID", vehicleId:"k72-ural" }));
+    me = id;
+  };
+  ws.onmessage = (ev) => {
+    let msg; try { msg = JSON.parse(ev.data); } catch { return; }
+    if (msg.type === "state") units = msg.payload.units || [];
+    if (msg.type === "join" && msg.payload.id === id) me = id;
+    if (msg.type === "kill" || msg.type === "cookoff") setSt(false, msg.type + " " + (msg.payload.id||""));
+    if (msg.type === "end") setSt(false, "бой окончен: " + msg.payload.winner);
+    if (msg.type === "hit" && msg.payload.id === id) setSt(false, "попадание hp=" + Math.round(msg.payload.hp));
+  };
+  ws.onclose = () => setSt(false, "сокет закрыт");
+  ws.onerror = () => setSt(false, "ошибка сокета (Passenger/WS)");
+}
+document.getElementById("join").onclick = connect;
+function sendInput(extra){
+  if (!ws || ws.readyState !== 1) return;
+  ws.send(JSON.stringify(Object.assign({ type:"input", x, y:0, z, yaw, turretYaw:yaw, gunPitch:0 }, extra||{})));
+}
+const pad = document.getElementById("pad"), knob = document.getElementById("knob");
+function stick(ev){
+  const t = ev.touches ? ev.touches[0] : ev;
+  const r = pad.getBoundingClientRect();
+  const cx = r.left + r.width/2, cy = r.top + r.height/2;
+  let dx = t.clientX - cx, dy = t.clientY - cy;
+  const max = r.width/2 - 8, len = Math.hypot(dx,dy)||1;
+  if (len > max) { dx *= max/len; dy *= max/len; }
+  knob.style.left = (r.width/2 + dx - 23) + "px";
+  knob.style.top = (r.height/2 + dy - 23) + "px";
+  vx = dx / max; vz = dy / max;
+  yaw = Math.atan2(dx, -dy);
+}
+function resetStick(){ vx=0; vz=0; knob.style.left="43px"; knob.style.top="43px"; }
+pad.addEventListener("touchstart", stick, {passive:true});
+pad.addEventListener("touchmove", stick, {passive:true});
+pad.addEventListener("touchend", resetStick);
+document.getElementById("fire").onclick = () => {
+  fireUntil = performance.now() + 180;
+  const target = units.find(u => u.id !== id && u.alive);
+  sendInput(target ? { hit: { target: target.id, module: "hull_front", damage: 90 } } : {});
+};
+setInterval(() => {
+  x += vx * 2.2;
+  z += vz * 2.2;
+  sendInput();
+}, 80);
+function draw(){
+  requestAnimationFrame(draw);
+  const w = canvas.width, h = canvas.height;
+  ctx.fillStyle = "#12140f"; ctx.fillRect(0,0,w,h);
+  ctx.save();
+  ctx.translate(w/2, h*0.55);
+  const s = Math.min(w,h)/420;
+  ctx.scale(s,s);
+  ctx.strokeStyle = "#2a2d24"; ctx.lineWidth = 2;
+  for (let i=-8;i<=8;i++){ ctx.beginPath(); ctx.moveTo(i*40,-320); ctx.lineTo(i*40,320); ctx.stroke(); ctx.beginPath(); ctx.moveTo(-320,i*40); ctx.lineTo(320,i*40); ctx.stroke(); }
+  for (const u of units){
+    ctx.save();
+    ctx.translate(u.x*6, -u.z*6);
+    ctx.rotate(u.yaw||0);
+    ctx.fillStyle = u.team==="blue" ? "#4a7aa8" : "#a85a4a";
+    if (u.id===id) ctx.fillStyle = "#c4b48a";
+    if (!u.alive) ctx.globalAlpha = .35;
+    ctx.fillRect(-10,-16,20,32);
+    ctx.fillStyle = "#222"; ctx.fillRect(-3,-22,6,18);
+    ctx.restore();
+    ctx.fillStyle = "#e8e4d8"; ctx.font = "10px sans-serif";
+    ctx.fillText((u.callsign||u.id)+" "+Math.max(0,Math.round(u.hp||0)), u.x*6-18, -u.z*6-22);
+  }
+  ctx.restore();
+  if (performance.now() < fireUntil){
+    ctx.fillStyle = "rgba(200,80,40,.18)"; ctx.fillRect(0,0,w,h);
+  }
+}
+draw();
+</script>
+</body>
+</html>

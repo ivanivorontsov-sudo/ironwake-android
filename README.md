@@ -1,26 +1,21 @@
 # IRONWAKE Android
 
-Fullscreen WebView client for **IRONWAKE**. GitHub Actions builds a debug APK on every push.
+Клиент боя для сервера **http://biker9td.beget.tech**.
 
-The APK loads the live hangar (tanks, helicopters, jets, first-person gunner, module damage). Change `GAME_URL` in `app/src/main/res/values/strings.xml` to your deployed hangar.
+APK — полноэкранный WebView с локальным ангаром (`app/src/main/assets/hangar.html`).
+Он проверяет `/health`, открывает `ws://biker9td.beget.tech/ws`, шлёт `join` / `input` и рисует снимок комнаты.
 
-## GitHub Actions
+## Собрать APK
 
-Workflow: [`.github/workflows/build-apk.yml`](.github/workflows/build-apk.yml)
+После пуша откройте GitHub → Actions → **Build APK** → скачайте `Ironwake-debug.apk`.
 
-- JDK 17
-- Android SDK 35
-- `assembleDebug`
-- Uploads `Ironwake-debug.apk` as an artifact
+Локально: Android Studio → Open эту папку → Run.
 
-Open the **Actions** tab after push, download the APK from the run.
+`minSdk 26`, HTTP cleartext разрешён (Beget пока без HTTPS).
 
-## Local
+## Протокол
 
-```bash
-# with Android Studio: Open this folder, Run app
-# or
-gradle :app:assembleDebug
-```
-
-`minSdk 26`. Internet permission required. Hardware-accelerated WebView.
+- `GET /health`
+- `WS /ws` → `{type:"join", room, callsign, userId, vehicleId}`
+- `{type:"input", x,z,yaw,turretYaw, hit?}`
+- сервер шлёт `state` / `hit` / `kill` / `end`

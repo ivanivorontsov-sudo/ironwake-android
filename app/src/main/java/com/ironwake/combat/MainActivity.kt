@@ -28,9 +28,9 @@ class MainActivity : AppCompatActivity() {
         settings.databaseEnabled = true
         settings.allowFileAccess = true
         settings.mediaPlaybackRequiresUserGesture = false
-        settings.cacheMode = WebSettings.LOAD_DEFAULT
-        settings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
-        settings.userAgentString = settings.userAgentString + " IronwakeAndroid/1.0"
+        settings.cacheMode = WebSettings.LOAD_NO_CACHE
+        settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+        settings.userAgentString = settings.userAgentString + " IronwakeAndroid/1.1"
         WebView.setWebContentsDebuggingEnabled(true)
 
         web.webChromeClient = WebChromeClient()
@@ -41,12 +41,19 @@ class MainActivity : AppCompatActivity() {
                 description: String?,
                 failingUrl: String?,
             ) {
+                if (failingUrl?.startsWith("file://") == true) return
                 view.loadUrl("file:///android_asset/offline.html")
             }
         }
 
-        val url = getString(R.string.game_url)
-        web.loadUrl(url)
+        val api = getString(R.string.game_url)
+        val ws = getString(R.string.ws_url)
+        web.loadUrl("file:///android_asset/hangar.html?api=$api&ws=$ws")
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() {
+        if (this::web.isInitialized && web.canGoBack()) web.goBack() else super.onBackPressed()
     }
 
     override fun onResume() {
