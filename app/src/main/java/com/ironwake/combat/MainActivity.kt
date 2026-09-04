@@ -27,10 +27,11 @@ class MainActivity : AppCompatActivity() {
         settings.domStorageEnabled = true
         settings.databaseEnabled = true
         settings.allowFileAccess = true
+        settings.allowContentAccess = true
         settings.mediaPlaybackRequiresUserGesture = false
         settings.cacheMode = WebSettings.LOAD_NO_CACHE
         settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-        settings.userAgentString = settings.userAgentString + " IronwakeAndroid/1.1"
+        settings.userAgentString = settings.userAgentString + " IronwakeAndroid/1.2"
         WebView.setWebContentsDebuggingEnabled(true)
 
         web.webChromeClient = WebChromeClient()
@@ -41,14 +42,13 @@ class MainActivity : AppCompatActivity() {
                 description: String?,
                 failingUrl: String?,
             ) {
-                if (failingUrl?.startsWith("file://") == true) return
-                view.loadUrl("file:///android_asset/offline.html")
+                if (failingUrl?.contains("android_asset") == true) return
+                view.loadUrl("file:///android_asset/hangar.html")
             }
         }
 
-        val api = getString(R.string.game_url)
-        val ws = getString(R.string.ws_url)
-        web.loadUrl("file:///android_asset/hangar.html?api=$api&ws=$ws")
+        // Live client first: Three.js and touch pads work over http.
+        web.loadUrl(getString(R.string.game_url) + "/play")
     }
 
     @Deprecated("Deprecated in Java")
@@ -59,16 +59,16 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         hideSystemUi()
-        web.onResume()
+        if (this::web.isInitialized) web.onResume()
     }
 
     override fun onPause() {
-        web.onPause()
+        if (this::web.isInitialized) web.onPause()
         super.onPause()
     }
 
     override fun onDestroy() {
-        web.destroy()
+        if (this::web.isInitialized) web.destroy()
         super.onDestroy()
     }
 
