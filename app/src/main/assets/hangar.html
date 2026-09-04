@@ -38,43 +38,37 @@
 </div>
 <script>
 const q = new URLSearchParams(location.search);
-const API = q.get("api") || "http://biker9td.beget.tech";
-const WS = q.get("ws") || "ws://biker9td.beget.tech/ws";
+const API = (q.get("api") || (location.protocol.startsWith("http") && location.hostname !== "localhost" ? location.origin : "http://biker9td.beget.tech")).replace(/\/$/,"");
 const st = document.getElementById("st");
 const canvas = document.getElementById("c");
 const ctx = canvas.getContext("2d");
-let me = null, units = [], ws = null, yaw = 0, vx = 0, vz = 0;
-let x = 12, z = 180, fireUntil = 0;
+let units = [], yaw = 0, vx = 0, vz = 0, x = 12, z = 180, fireUntil = 0, joined = false;
 const id = "a" + Math.random().toString(36).slice(2, 8);
+const room = "public";
 function setSt(ok, t){ st.className = ok ? "ok" : "bad"; st.textContent = t; }
 function resize(){ canvas.width = innerWidth * devicePixelRatio; canvas.height = innerHeight * devicePixelRatio; }
 addEventListener("resize", resize); resize();
+function post(path, body){
+  return fetch(API + path, { method:"POST", headers:{ "content-type":"application/json" }, body: JSON.stringify(body) });
+}
 fetch(API + "/health").then(r=>r.json()).then(j=>{
-  setSt(j.ok, j.ok ? "сервер и база живы" : ("база: " + (j.error||"down")));
+  setSt(j.ok, j.ok ? "HTTP-канал готов" : ("база: " + (j.error||"down")));
 }).catch(()=>setSt(false, "сервер недоступен"));
-function connect(){
-  if (ws && ws.readyState < 2) return;
-  ws = new WebSocket(WS);
-  ws.onopen = () => {
-    setSt(true, "сокет открыт");
-    ws.send(JSON.stringify({ type:"join", room:"public", mode:"laststand", userId:id, callsign:"ANDROID", vehicleId:"k72-ural" }));
-    me = id;
-  };
-  ws.onmessage = (ev) => {
-    let msg; try { msg = JSON.parse(ev.data); } catch { return; }
-    if (msg.type === "state") units = msg.payload.units || [];
-    if (msg.type === "join" && msg.payload.id === id) me = id;
-    if (msg.type === "kill" || msg.type === "cookoff") setSt(false, msg.type + " " + (msg.payload.id||""));
-    if (msg.type === "end") setSt(false, "бой окончен: " + msg.payload.winner);
-    if (msg.type === "hit" && msg.payload.id === id) setSt(false, "попадание hp=" + Math.round(msg.payload.hp));
-  };
-  ws.onclose = () => setSt(false, "сокет закрыт");
-  ws.onerror = () => setSt(false, "ошибка сокета (Passenger/WS)");
+async function connect(){
+  try {
+    const r = await post("/room/join", { room, mode:"laststand", userId:id, callsign:"ANDROID", vehicleId:"k72-ural" });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || "join fail");
+    joined = true;
+    setSt(true, "в бою · HTTP · " + j.team);
+  } catch (e) {
+    setSt(false, "join: " + e.message);
+  }
 }
 document.getElementById("join").onclick = connect;
 function sendInput(extra){
-  if (!ws || ws.readyState !== 1) return;
-  ws.send(JSON.stringify(Object.assign({ type:"input", x, y:0, z, yaw, turretYaw:yaw, gunPitch:0 }, extra||{})));
+  if (!joined) return;
+  post("/room/input", Object.assign({ room, userId:id, x, y:0, z, yaw, turretYaw:yaw, gunPitch:0 }, extra||{})).catch(()=>{});
 }
 const pad = document.getElementById("pad"), knob = document.getElementById("knob");
 function stick(ev){
@@ -103,6 +97,17 @@ setInterval(() => {
   z += vz * 2.2;
   sendInput();
 }, 80);
+setInterval(async () => {
+  try {
+    const r = await fetch(API + "/room/state?room=" + room);
+    const j = await r.json();
+    units = (j.payload && j.payload.units) || [];
+    const ev = (j.events || []).slice(-1)[0];
+    if (ev && ev.type !== "join") {
+      if (ev.type === "end") setSt(false, "бой окончен: " + ev.payload.winner);
+    }
+  } catch {}
+}, 120);
 function draw(){
   requestAnimationFrame(draw);
   const w = canvas.width, h = canvas.height;
