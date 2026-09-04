@@ -1,13 +1,10 @@
-# URP Settings
+# URP / Quality settings
 
-`Packages/manifest.json` already depends on `com.unity.render-pipelines.universal`.
+1. Create **URP Asset** (Universal Render Pipeline Asset) + Renderer.
+2. Project Settings → Graphics → Scriptable Render Pipeline Settings → assign URP Asset.
+3. Quality → each level → Rendering → same URP Asset.
+4. Enable HDR on URP Asset; soft shadows recommended.
+5. Optional: Global Volume (Bloom ~0.35, Vignette ~0.28, Color Adjustments).
+   Runtime `UrpVisualTuner` tries to create these; if overrides missing, cameras still get `allowHDR`.
 
-After opening in Unity Hub:
-
-1. Window → Rendering → Render Pipeline Converter (or create via
-   Assets → Create → Rendering → URP Asset (with Universal Renderer)).
-2. Assign the URP Asset in Project Settings → Graphics / Quality.
-3. Save assets under this folder (`Ironwake_URP.asset`, `Ironwake_Renderer.asset`).
-
-We intentionally do **not** commit binary `.asset` blobs from a missing Editor —
-Hub generates them cleanly on first open.
+Mobile: keep MSAA 2x, shadow distance ≤ 100, no expensive SSAO for mid-tier phones.

@@ -1,6 +1,7 @@
 using UnityEngine;
 using Ironwake.Net;
 using Ironwake.Vehicles;
+using Ironwake.Graphics;
 
 namespace Ironwake.Combat
 {
@@ -30,6 +31,7 @@ namespace Ironwake.Combat
         [SerializeField] float softCorrectRate = 8f;
         [SerializeField] float softCorrectSnap = 6f;
         [SerializeField] bool localPrediction = true;
+        [SerializeField] bool localSimDriven = false;
         [SerializeField] CamMode camMode = CamMode.GunnerFps;
 
         [Header("Input")]
@@ -90,6 +92,25 @@ namespace Ironwake.Combat
         }
 
         public void SetCallsign(string c) => _callsign = string.IsNullOrEmpty(c) ? "OPERATOR" : c;
+
+        public void SetLocalSimDriven(bool v)
+        {
+            localSimDriven = v;
+            if (v) localPrediction = false;
+        }
+
+        public float EstimatedSpeed => _predVel.magnitude;
+        public float AimYawRad => _aimYawDeg * Mathf.Deg2Rad;
+        public float AimPitchRad => _aimPitchDeg * Mathf.Deg2Rad;
+        public float ThrottleInput => _throttle;
+        public float SteerInput => _steer;
+        public bool BrakeInput => _brake;
+        public bool ConsumeFirePulse()
+        {
+            bool f = _firePulse;
+            _firePulse = false;
+            return f;
+        }
 
         public void SetMove(float steer, float throttle)
         {
@@ -180,6 +201,39 @@ namespace Ironwake.Combat
             _displayGunPitch = Mathf.Lerp(_displayGunPitch, u.GunPitch * Mathf.Rad2Deg, t * 1.2f);
         }
 
+        /// <summary>Apply authoritative pose from LocalBattleSim (no soft-correct fight).</summary>
+        public void ApplySimSnapshot(UnitSnapshot u)
+        {
+            if (u == null) return;
+            _server = u;
+            _hasServer = true;
+            IsAlive = u.Alive && !u.Spectator;
+            Vector3 pos = new Vector3(u.X, u.Y > 0.01f ? u.Y : transform.position.y, u.Z);
+            _predVel = (pos - transform.position) / Mathf.Max(Time.deltaTime, 0.001f);
+            transform.position = pos;
+            _hullYawDeg = u.Yaw * Mathf.Rad2Deg;
+            _displayTurretYaw = u.TurretYaw * Mathf.Rad2Deg;
+            _displayGunPitch = u.GunPitch * Mathf.Rad2Deg;
+            // Keep aim intent if player is looking — otherwise follow sim
+            if (!IsLocalPlayer)
+            {
+                _aimYawDeg = _displayTurretYaw;
+                _aimPitchDeg = _displayGunPitch;
+            }
+            if (u.Modules != null && _modules != null)
+                _modules.ApplyServerModules(u.Modules.ToDictionary());
+            if (_modules != null)
+            {
+                if (u.OnFire) _modules.ForceFireVisual(true);
+                TracksBroken = u.Immobilized || u.Modules.TrackL < 0.2f || u.Modules.TrackR < 0.2f;
+                EngineDead = u.Modules.Engine < 0.05f;
+            }
+            if (!IsAlive && !IsSpectator)
+                EnterSpectator(null);
+            ApplyPoseVisuals();
+            UpdateChaseRig();
+        }
+
         void SnapToServer(UnitSnapshot u)
         {
             transform.position = new Vector3(u.X, u.Y > 0.01f ? u.Y : transform.position.y, u.Z);
@@ -225,25 +279,41 @@ namespace Ironwake.Combat
                 return;
             }
 
-            // Aim from look stick / mouse — absolute intent in rad sent to server
+            // Aim from look stick / mouse
             float yawSpeed = def != null ? def.turretYawSpeed : 55f;
             float pitchSpeed = def != null ? def.turretYawSpeed * 0.7f : 40f;
             _aimYawDeg += _lookX * yawSpeed * dt;
             _aimPitchDeg = Mathf.Clamp(_aimPitchDeg - _lookY * pitchSpeed * dt, gunPitchMin, gunPitchMax);
 
-            // Turret lag display
-            _displayTurretYaw = Mathf.LerpAngle(_displayTurretYaw, _aimYawDeg, 1f - Mathf.Exp(-turretLag * dt));
-            _displayGunPitch = Mathf.Lerp(_displayGunPitch, _aimPitchDeg, 1f - Mathf.Exp(-turretLag * 0.85f * dt));
-
-            if (localPrediction)
-                PredictMotion(dt);
-
-            ApplyPoseVisuals();
-            UpdateChaseRig();
-            PushNetInput();
-            _firePulse = false;
+            if (localSimDriven)
+            {
+                // Pose comes from LocalBattleSim snapshots; still blend turret toward aim intent
+                _displayTurretYaw = Mathf.LerpAngle(_displayTurretYaw, _aimYawDeg, 1f - Mathf.Exp(-turretLag * dt));
+                _displayGunPitch = Mathf.Lerp(_displayGunPitch, _aimPitchDeg, 1f - Mathf.Exp(-turretLag * 0.85f * dt));
+                if (turret) turret.rotation = Quaternion.Euler(0f, _displayTurretYaw, 0f);
+                if (gun) gun.localRotation = Quaternion.Euler(_displayGunPitch, 0f, 0f);
+                UpdateChaseRig();
+            }
+            else
+            {
+                _displayTurretYaw = Mathf.LerpAngle(_displayTurretYaw, _aimYawDeg, 1f - Mathf.Exp(-turretLag * dt));
+                _displayGunPitch = Mathf.Lerp(_displayGunPitch, _aimPitchDeg, 1f - Mathf.Exp(-turretLag * 0.85f * dt));
+                if (localPrediction)
+                    PredictMotion(dt);
+                ApplyPoseVisuals();
+                UpdateChaseRig();
+                PushNetInput();
+                _firePulse = false;
+            }
             _lookX = 0f;
             _lookY = 0f;
+        }
+
+        void LateUpdate()
+        {
+            if (!IsLocalPlayer || !localSimDriven || IsSpectator) return;
+            PushLocalSimInput();
+            _firePulse = false;
         }
 
         void PredictMotion(float dt)
@@ -355,16 +425,29 @@ namespace Ironwake.Combat
             if (IsSpectator || !IsAlive) return;
             if (_modules != null && _modules.IsCookedOff) return;
             _firePulse = true;
-            // Muzzle flash placeholder — authoritative shell comes from server projectiles
             Vector3 origin = muzzle != null ? muzzle.position : transform.position + Vector3.up;
-            var flash = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            flash.name = "MuzzleFlash";
-            flash.transform.position = origin;
-            flash.transform.localScale = Vector3.one * 0.35f;
-            Object.Destroy(flash.GetComponent<Collider>());
-            var r = flash.GetComponent<Renderer>();
-            if (r) r.material.color = new Color(1f, 0.75f, 0.2f);
-            Object.Destroy(flash, 0.08f);
+            Vector3 dir = muzzle != null ? muzzle.forward : transform.forward;
+            var vfx = CombatVfx.Instance ?? CombatVfx.Ensure();
+            vfx.MuzzleFlash(origin, dir);
+        }
+
+        void PushLocalSimInput()
+        {
+            var sim = Ironwake.Sim.LocalBattleSim.Instance;
+            if (sim == null || !sim.Running || IsSpectator) return;
+            bool fire = _firePulse;
+            sim.SetLocalInput(new InputFrame
+            {
+                Throttle = _throttle,
+                Steer = _steer,
+                Brake = _brake,
+                Fire = fire,
+                AimYaw = AimYawRad,
+                AimPitch = AimPitchRad,
+                TurretYaw = AimYawRad,
+                GunPitch = AimPitchRad
+            });
+            _brake = false;
         }
 
         void PushNetInput()
@@ -399,87 +482,42 @@ namespace Ironwake.Combat
             var vc = root.AddComponent<VehicleController>();
             vc.def = def;
 
-            VehicleKind kind = def != null ? def.kind : VehicleKind.Tank;
-            Vector3 hullScale;
-            Color col = def != null ? def.previewColor : new Color(0.76f, 0.71f, 0.54f);
-            switch (kind)
-            {
-                case VehicleKind.Apc:
-                    hullScale = new Vector3(2.0f, 1.0f, 4.4f); break;
-                case VehicleKind.Car:
-                    hullScale = new Vector3(1.6f, 0.7f, 3.2f); break;
-                case VehicleKind.Heli:
-                    hullScale = new Vector3(1.4f, 0.9f, 5.2f); break;
-                case VehicleKind.Plane:
-                    hullScale = new Vector3(1.2f, 0.6f, 6.5f); break;
-                default:
-                    hullScale = new Vector3(2.4f, 1.1f, 4.8f); break;
-            }
+            var rig = TankVisualBuilder.Build(def, root.transform);
+            // Flatten: move visual parts under root, destroy wrapper if needed
+            if (rig.Hull) rig.Hull.SetParent(root.transform, true);
+            if (rig.Turret && rig.Turret != rig.Hull) rig.Turret.SetParent(root.transform, true);
 
-            var hullGo = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            hullGo.name = "Hull";
-            hullGo.transform.SetParent(root.transform, false);
-            hullGo.transform.localScale = hullScale;
-            float clearance = def != null ? def.groundClearance * 0.15f + hullScale.y * 0.5f : 0.9f;
-            hullGo.transform.localPosition = Vector3.up * clearance;
-            Object.Destroy(hullGo.GetComponent<Collider>());
-            var hr = hullGo.GetComponent<Renderer>();
-            if (hr) hr.material.color = col;
             var hullCol = root.AddComponent<BoxCollider>();
-            hullCol.size = hullScale;
-            hullCol.center = hullGo.transform.localPosition;
+            hullCol.size = new Vector3(2.6f, 1.4f, 5f);
+            hullCol.center = new Vector3(0f, 1f, 0f);
 
-            var turretGo = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            turretGo.name = "Turret";
-            turretGo.transform.SetParent(root.transform, false);
-            turretGo.transform.localScale = kind == VehicleKind.Car
-                ? new Vector3(0.9f, 0.4f, 0.9f)
-                : new Vector3(1.7f, 0.72f, 1.9f);
-            turretGo.transform.localPosition = Vector3.up * (clearance + hullScale.y * 0.55f);
-            Object.Destroy(turretGo.GetComponent<Collider>());
-            var tr = turretGo.GetComponent<Renderer>();
-            if (tr) tr.material.color = col * 0.9f;
-
-            var gunGo = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            gunGo.name = "Gun";
-            gunGo.transform.SetParent(turretGo.transform, false);
-            float gunLen = kind == VehicleKind.Tank ? 3.5f : (kind == VehicleKind.Car ? 1.4f : 2.4f);
-            gunGo.transform.localScale = new Vector3(0.18f, 0.18f, gunLen);
-            gunGo.transform.localPosition = new Vector3(0f, 0.05f, gunLen * 0.45f);
-            Object.Destroy(gunGo.GetComponent<Collider>());
-
-            var muzzleGo = new GameObject("Muzzle");
-            muzzleGo.transform.SetParent(gunGo.transform, false);
-            muzzleGo.transform.localPosition = new Vector3(0f, 0f, 0.55f);
-
-            if (kind == VehicleKind.Heli || kind == VehicleKind.Plane)
-            {
-                var wing = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                wing.name = "Wing";
-                wing.transform.SetParent(hullGo.transform, false);
-                wing.transform.localScale = new Vector3(kind == VehicleKind.Plane ? 4.5f : 2.8f, 0.12f, 0.8f);
-                wing.transform.localPosition = Vector3.zero;
-                Object.Destroy(wing.GetComponent<Collider>());
-            }
-
+            Transform turretParent = rig.Turret != null ? rig.Turret : root.transform;
             var gCamGo = new GameObject("GunnerCam");
-            gCamGo.transform.SetParent(turretGo.transform, false);
-            gCamGo.transform.localPosition = new Vector3(0f, 0.35f, 0.2f);
+            gCamGo.transform.SetParent(turretParent, false);
+            gCamGo.transform.localPosition = new Vector3(0f, 0.45f, 0.25f);
             var gCam = gCamGo.AddComponent<Camera>();
             gCam.fieldOfView = 62f;
             gCam.nearClipPlane = 0.05f;
+            gCam.farClipPlane = 450f;
+            gCam.allowHDR = true;
             gCam.tag = "MainCamera";
+            gCam.backgroundColor = new Color(0.5f, 0.6f, 0.7f);
+            gCam.clearFlags = CameraClearFlags.SolidColor;
 
             var cCamGo = new GameObject("ChaseCam");
             cCamGo.transform.SetParent(root.transform, false);
             var cCam = cCamGo.AddComponent<Camera>();
             cCam.fieldOfView = 60f;
+            cCam.farClipPlane = 450f;
+            cCam.allowHDR = true;
             cCam.enabled = false;
+            cCam.backgroundColor = new Color(0.5f, 0.6f, 0.7f);
+            cCam.clearFlags = CameraClearFlags.SolidColor;
 
-            vc.hull = hullGo.transform;
-            vc.turret = turretGo.transform;
-            vc.gun = gunGo.transform;
-            vc.muzzle = muzzleGo.transform;
+            vc.hull = rig.Hull != null ? rig.Hull : root.transform;
+            vc.turret = rig.Turret != null ? rig.Turret : vc.hull;
+            vc.gun = rig.Gun != null ? rig.Gun : vc.turret;
+            vc.muzzle = rig.Muzzle != null ? rig.Muzzle : vc.gun;
             vc.gunnerCam = gCam;
             vc.chaseCam = cCam;
             vc.ApplyDef();

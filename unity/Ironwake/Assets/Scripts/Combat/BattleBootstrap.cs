@@ -1,75 +1,152 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Ironwake.Net;
 using Ironwake.Vehicles;
 using Ironwake.Meta;
+using Ironwake.Graphics;
+using Ironwake.Sim;
+using Ironwake.Input;
 
 namespace Ironwake.Combat
 {
     /// <summary>
-    /// Wires IronwakeClient + local player + remote interpolators + projectile presenter.
-    /// Soft-corrects local pose from authoritative units; remotes lerp toward snapshots.
+    /// Default: LocalBattleSim (device-authoritative graphics/combat + bots).
+    /// Optional: online room via IronwakeClient when PlayerPrefs iw.battleMode=online.
+    /// Builds environment + tank visuals at runtime so empty YAML scenes still play.
     /// </summary>
     public sealed class BattleBootstrap : MonoBehaviour
     {
+        public enum BattleMode { LocalSim, Online }
+
         [SerializeField] VehicleCatalog catalog;
         [SerializeField] bool spawnRuntimeHud = true;
+        [SerializeField] BattleMode mode = BattleMode.LocalSim;
 
         VehicleController _local;
         ModuleDamagePresenter _localMods;
         ProjectilePresenter _projectiles;
+        CombatVfx _vfx;
+        LocalBattleSim _sim;
         readonly Dictionary<string, RemoteUnitView> _remotes = new Dictionary<string, RemoteUnitView>();
         string _killerId;
         bool _matchEnded;
         string _winner;
+        bool _reportedMatch;
+        ParticleSystem _localDust;
 
         void Start()
         {
             if (catalog == null) catalog = VehicleCatalog.CreateDefaultRuntime();
-            EnsureEnv();
-            EnsureClient();
+
+            string modePref = PlayerPrefs.GetString("iw.battleMode", "local");
+            if (modePref == "online") mode = BattleMode.Online;
+            else mode = BattleMode.LocalSim;
+
+            BattleEnvironmentBuilder.Build();
+            _vfx = CombatVfx.Ensure();
 
             string vid = PlayerPrefs.GetString("iw.vehicle", "k72-ural");
             string callsign = PlayerPrefs.GetString("iw.callsign", "OPERATOR");
             var def = catalog.Get(vid);
             float y = def != null ? Mathf.Max(0.5f, def.groundClearance * 0.15f) : 1f;
             Vector3 spawn = new Vector3(8f, y, 22f);
-            if (IronwakeClient.Instance != null && IronwakeClient.Instance.Team == "red")
-                spawn = new Vector3(-8f, y, -22f);
+
+            if (mode == BattleMode.Online)
+            {
+                EnsureClient();
+                if (IronwakeClient.Instance != null && IronwakeClient.Instance.Team == "red")
+                    spawn = new Vector3(-8f, y, -22f);
+            }
 
             _local = VehicleController.SpawnPrimitive(def, spawn);
             _local.IsLocalPlayer = true;
             _local.SetCallsign(callsign);
+            // Local sim owns motion — disable client prediction soft-correct against missing server
+            if (mode == BattleMode.LocalSim)
+                _local.SetLocalSimDriven(true);
+
             _localMods = _local.GetComponent<ModuleDamagePresenter>();
             var net = _local.GetComponent<NetUnitId>();
-            if (net != null && IronwakeClient.Instance != null)
-                net.Id = IronwakeClient.Instance.UserId;
 
             var projGo = new GameObject("ProjectilePresenter");
             _projectiles = projGo.AddComponent<ProjectilePresenter>();
-            if (IronwakeClient.Instance != null)
-                _projectiles.BindClient(IronwakeClient.Instance);
+
+            _localDust = _vfx.AttachDust(_local.transform);
 
             if (spawnRuntimeHud)
             {
                 var hud = new GameObject("BattleHud").AddComponent<BattleHudStub>();
                 hud.Bind(_local);
-                // Module icon strip on same canvas
                 var canvas = Object.FindObjectOfType<Canvas>();
                 if (canvas != null && _localMods != null)
                     _localMods.EnsureUiStrip(canvas.transform);
             }
 
+            if (mode == BattleMode.LocalSim)
+                BootLocal(callsign, vid, net);
+            else
+                BootOnline(net);
+        }
+
+        void BootLocal(string callsign, string vid, NetUnitId net)
+        {
+            var simGo = new GameObject("LocalBattleSim");
+            _sim = simGo.AddComponent<LocalBattleSim>();
+
+            string userId = PlayerPrefs.GetString("iw.userId", "");
+            if (string.IsNullOrEmpty(userId) && IronwakeClient.Instance != null)
+                userId = IronwakeClient.Instance.UserId;
+            if (string.IsNullOrEmpty(userId))
+                userId = "local_" + System.Guid.NewGuid().ToString("N").Substring(0, 8);
+
+            if (net != null) net.Id = userId;
+
+            _sim.OnState += OnLocalState;
+            _sim.OnGameEvent += OnGameEvent;
+            _sim.OnMatchEnd += OnMatchEnd;
+
+            string team = PlayerPrefs.GetString("iw.team", "blue");
+            _sim.StartLocalBattle(catalog, userId, callsign, vid, team);
+
+            var input = new GameObject("MobileBattleInput").AddComponent<MobileBattleInput>();
+            input.Bind(_local, _sim);
+
+            // Meta client for POST /match only (no room join required)
+            EnsureClient();
+            if (IronwakeClient.Instance != null)
+                _projectiles.BindClient(IronwakeClient.Instance);
+
+            Debug.Log("[BattleBootstrap] LocalSim mode — graphics & combat on device");
+        }
+
+        void BootOnline(NetUnitId net)
+        {
+            EnsureClient();
+            if (net != null && IronwakeClient.Instance != null)
+                net.Id = IronwakeClient.Instance.UserId;
+
             if (IronwakeClient.Instance != null)
             {
+                _projectiles.BindClient(IronwakeClient.Instance);
                 IronwakeClient.Instance.OnState += OnRoomState;
                 IronwakeClient.Instance.OnGameEvent += OnGameEvent;
                 IronwakeClient.Instance.OnMatchEnd += OnMatchEnd;
             }
+
+            var input = new GameObject("MobileBattleInput").AddComponent<MobileBattleInput>();
+            input.Bind(_local, null);
+            Debug.Log("[BattleBootstrap] Online mode — IronwakeClient room sync");
         }
 
         void OnDestroy()
         {
+            if (_sim != null)
+            {
+                _sim.OnState -= OnLocalState;
+                _sim.OnGameEvent -= OnGameEvent;
+                _sim.OnMatchEnd -= OnMatchEnd;
+            }
             if (IronwakeClient.Instance != null)
             {
                 IronwakeClient.Instance.OnState -= OnRoomState;
@@ -85,43 +162,49 @@ namespace Ironwake.Combat
             go.AddComponent<IronwakeClient>();
         }
 
-        void EnsureEnv()
+        void Update()
         {
-            if (Object.FindObjectOfType<Light>() == null)
+            if (_local != null && _localDust != null && _vfx != null)
             {
-                var sun = new GameObject("Sun").AddComponent<Light>();
-                sun.type = LightType.Directional;
-                sun.color = new Color(1f, 0.95f, 0.85f);
-                sun.intensity = 1.2f;
-                sun.transform.rotation = Quaternion.Euler(50f, -35f, 0f);
+                float spd = _local.EstimatedSpeed;
+                _vfx.SetDustRate(_localDust, spd);
             }
-            if (GameObject.Find("Ground") == null)
-            {
-                var ground = GameObject.CreatePrimitive(PrimitiveType.Plane);
-                ground.name = "Ground";
-                ground.transform.localScale = Vector3.one * 42f;
-                var r = ground.GetComponent<Renderer>();
-                if (r) r.material.color = new Color(0.36f, 0.41f, 0.28f);
-            }
-            RenderSettings.fog = true;
-            RenderSettings.fogMode = FogMode.Linear;
-            RenderSettings.fogColor = new Color(0.53f, 0.63f, 0.65f);
-            RenderSettings.fogStartDistance = 50f;
-            RenderSettings.fogEndDistance = 240f;
         }
 
-        void OnRoomState(RoomStatePayload state)
+        void OnLocalState(RoomStatePayload state)
+        {
+            ApplyState(state, fromLocal: true);
+            // Drive projectiles visually from local shells
+            if (state?.Projectiles != null && _vfx != null)
+            {
+                foreach (var p in state.Projectiles)
+                {
+                    if (p == null) continue;
+                    // Lightweight streak toward motion — presenter also handles server path
+                }
+            }
+        }
+
+        void OnRoomState(RoomStatePayload state) => ApplyState(state, fromLocal: false);
+
+        void ApplyState(RoomStatePayload state, bool fromLocal)
         {
             if (state?.Units == null) return;
             var seen = new HashSet<string>();
-            string myId = IronwakeClient.Instance != null ? IronwakeClient.Instance.UserId : null;
+            string myId = fromLocal
+                ? (_sim != null ? _sim.LocalPlayerId : null)
+                : (IronwakeClient.Instance != null ? IronwakeClient.Instance.UserId : null);
 
             foreach (var u in state.Units)
             {
                 if (u == null || string.IsNullOrEmpty(u.Id)) continue;
                 if (u.Id == myId)
                 {
-                    _local?.ApplyServerSnapshot(u, softCorrect: true);
+                    if (fromLocal)
+                        _local?.ApplySimSnapshot(u);
+                    else
+                        _local?.ApplyServerSnapshot(u, softCorrect: true);
+
                     if (u.Spectator || !u.Alive)
                     {
                         if (_local != null && !_local.IsSpectator)
@@ -137,8 +220,7 @@ namespace Ironwake.Combat
                     float y = u.Y > 0.01f ? u.Y : (def != null ? def.groundClearance * 0.15f : 1f);
                     var remote = VehicleController.SpawnPrimitive(def, new Vector3(u.X, y, u.Z));
                     remote.IsLocalPlayer = false;
-                    remote.enabled = false; // RemoteUnitView owns pose interpolation
-                    // Disable local cameras on remotes
+                    remote.enabled = false;
                     foreach (var cam in remote.GetComponentsInChildren<Camera>())
                         cam.enabled = false;
                     var nid = remote.GetComponent<NetUnitId>();
@@ -166,13 +248,19 @@ namespace Ironwake.Combat
         void OnGameEvent(GameEvent ev)
         {
             if (ev == null) return;
-            string myId = IronwakeClient.Instance != null ? IronwakeClient.Instance.UserId : null;
+            string myId = _sim != null && mode == BattleMode.LocalSim
+                ? _sim.LocalPlayerId
+                : (IronwakeClient.Instance != null ? IronwakeClient.Instance.UserId : null);
 
             switch (ev.Type)
             {
+                case "shot":
+                    HandleShotVfx(ev);
+                    break;
                 case "hit":
                     if (ev.Id == myId && _localMods != null && !string.IsNullOrEmpty(ev.Module))
-                        _localMods.ApplyHit(ev.Module, 0.05f); // flash; real HP from state
+                        _localMods.ApplyHit(ev.Module, 0.05f);
+                    HandleHitVfx(ev);
                     break;
                 case "module_break":
                     if (ev.Id == myId && _localMods != null && !string.IsNullOrEmpty(ev.Module))
@@ -186,6 +274,7 @@ namespace Ironwake.Combat
                     break;
                 case "cookoff":
                     if (ev.Id == myId) _localMods?.TriggerCookOffExternal();
+                    HandleCookOff(ev.Id);
                     break;
                 case "kill":
                     if (ev.Id == myId)
@@ -206,25 +295,88 @@ namespace Ironwake.Combat
             }
         }
 
+        void HandleShotVfx(GameEvent ev)
+        {
+            if (_vfx == null) return;
+            Transform muzzle = null;
+            if (_sim != null && ev.Id == _sim.LocalPlayerId && _local != null)
+                muzzle = _local.Muzzle;
+            else if (!string.IsNullOrEmpty(ev.Id) && _remotes.TryGetValue(ev.Id, out var view) && view != null)
+                muzzle = view.GetMuzzle();
+
+            Vector3 pos = muzzle != null ? muzzle.position : Vector3.up;
+            Vector3 dir = muzzle != null ? muzzle.forward : Vector3.forward;
+            _vfx.MuzzleFlash(pos, dir);
+            _vfx.Tracer(pos, pos + dir * 40f);
+        }
+
+        void HandleHitVfx(GameEvent ev)
+        {
+            if (_vfx == null) return;
+            Vector3 pos = Vector3.up;
+            if (!string.IsNullOrEmpty(ev.Id))
+            {
+                if (_sim != null && ev.Id == _sim.LocalPlayerId && _local != null)
+                    pos = _local.transform.position + Vector3.up;
+                else if (_remotes.TryGetValue(ev.Id, out var v) && v != null && v.Root)
+                    pos = v.Root.position + Vector3.up;
+            }
+            _vfx.ImpactSparks(pos, Vector3.up);
+        }
+
+        void HandleCookOff(string unitId)
+        {
+            if (_vfx == null) return;
+            Vector3 pos = _local != null ? _local.transform.position : Vector3.zero;
+            if (!string.IsNullOrEmpty(unitId) && _remotes.TryGetValue(unitId, out var v) && v != null && v.Root)
+                pos = v.Root.position;
+            _vfx.CookOffExplosion(pos);
+        }
+
         void OnMatchEnd(string winner)
         {
+            if (_matchEnded) return;
             _matchEnded = true;
             _winner = winner;
             Debug.Log($"[Battle] MATCH END winner={winner}");
+            if (!_reportedMatch && mode == BattleMode.LocalSim)
+            {
+                _reportedMatch = true;
+                StartCoroutine(ReportMatchBestEffort());
+            }
+        }
+
+        IEnumerator ReportMatchBestEffort()
+        {
+            EnsureClient();
+            var client = IronwakeClient.Instance;
+            if (client == null || _sim == null) yield break;
+            var result = _sim.BuildResult();
+            if (string.IsNullOrEmpty(result.UserId) || result.UserId.StartsWith("local_"))
+            {
+                Debug.Log("[Battle] skip POST /match — anonymous local user");
+                yield break;
+            }
+            bool ok = false;
+            yield return client.ReportMatch(result, s => ok = s);
+            Debug.Log(ok ? "[Battle] POST /match ok" : "[Battle] POST /match failed (best-effort)");
         }
 
         void OnGUI()
         {
             if (!_matchEnded) return;
             string msg = string.IsNullOrEmpty(_winner)
-                ? "БОЙ ОКОНЧЕН"
-                : $"ПОБЕДА: {(_winner == "blue" ? "СИНИЕ" : "КРАСНЫЕ")}";
-            var style = new GUIStyle(GUI.skin.box) { fontSize = 28, alignment = TextAnchor.MiddleCenter };
-            GUI.Box(new Rect(Screen.width * 0.25f, Screen.height * 0.4f, Screen.width * 0.5f, 80), msg, style);
+                ? "БОЙ ОКОНЧЕН / MATCH OVER"
+                : $"ПОБЕДА / WINNER: {(_winner == "blue" ? "СИНИЕ / BLUE" : "КРАСНЫЕ / RED")}";
+            var style = new GUIStyle(GUI.skin.box) { fontSize = 26, alignment = TextAnchor.MiddleCenter };
+            GUI.Box(new Rect(Screen.width * 0.2f, Screen.height * 0.38f, Screen.width * 0.6f, 90), msg, style);
+            string modeLabel = mode == BattleMode.LocalSim ? "LocalSim" : "Online";
+            GUI.Label(new Rect(Screen.width * 0.2f, Screen.height * 0.38f + 95, Screen.width * 0.6f, 28),
+                $"[{modeLabel}]");
         }
     }
 
-    /// <summary>Interpolates remote unit pose between server snapshots (~15 Hz HTTP).</summary>
+    /// <summary>Interpolates remote unit pose between snapshots (~15–20 Hz).</summary>
     public sealed class RemoteUnitView : MonoBehaviour
     {
         VehicleController _vc;
@@ -232,7 +384,7 @@ namespace Ironwake.Combat
         Vector3 _fromPos, _toPos;
         float _fromYaw, _toYaw, _fromTurret, _toTurret, _fromPitch, _toPitch;
         float _t;
-        const float SnapshotInterval = 1f / 15f;
+        const float SnapshotInterval = 1f / 20f;
 
         public Transform Root => transform;
 
@@ -243,13 +395,13 @@ namespace Ironwake.Combat
             _fromPos = _toPos = vc.transform.position;
         }
 
+        public Transform GetMuzzle() => _vc != null ? _vc.Muzzle : null;
+
         public void PushSnapshot(UnitSnapshot u)
         {
             _fromPos = transform.position;
             _toPos = new Vector3(u.X, u.Y > 0.01f ? u.Y : transform.position.y, u.Z);
-            _fromYaw = _vc != null ? transform.eulerAngles.y : 0f;
-            // Prefer hull child yaw
-            if (_vc != null && _vc.Hull) _fromYaw = _vc.Hull.eulerAngles.y;
+            _fromYaw = _vc != null && _vc.Hull ? _vc.Hull.eulerAngles.y : transform.eulerAngles.y;
             _toYaw = u.Yaw * Mathf.Rad2Deg;
             _fromTurret = _toTurret;
             _toTurret = u.TurretYaw * Mathf.Rad2Deg;
