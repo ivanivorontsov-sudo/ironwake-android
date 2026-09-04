@@ -1,151 +1,145 @@
 <!DOCTYPE html>
-<html lang="ru">
-<head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no"/>
-  <title>IRONWAKE</title>
-  <style>
-    :root{--bg:#0b0c0a;--ink:#e6e1d4;--dim:#8f8d80;--steel:#c2b48a;--red:#b4543c;--ok:#7a9a68}
-    *{box-sizing:border-box}
-    html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:Segoe UI,sans-serif;overflow:hidden}
-    #hangar,#battle{position:absolute;inset:0}
-    #battle{display:none}
-    header{display:flex;justify-content:space-between;align-items:flex-end;padding:18px 22px 8px}
-    .kicker{letter-spacing:.32em;text-transform:uppercase;font-size:11px;color:var(--dim)}
-    h1{margin:4px 0 0;font:700 42px/1 Segoe UI,sans-serif}
-    .wallet{display:flex;gap:16px;font-size:13px}
-    .wallet b{color:var(--steel)}
-    .grid{display:grid;grid-template-columns:1.2fr .8fr;gap:18px;padding:8px 22px 22px;height:calc(100% - 92px)}
-    .card{background:#141612;border:1px solid #2a2c26;padding:16px}
-    .veh{margin:8px 0;padding:10px;border:1px solid #2f322b;cursor:pointer}
-    .veh.on{border-color:var(--steel);background:#1c1e18}
-    .veh h3{margin:0;font-size:16px}
-    .veh p{margin:2px 0 0;color:var(--dim);font-size:12px}
-    .mods{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;font-size:12px}
-    .mods i{display:block;height:5px;background:#2c2f28;margin-top:4px}
-    .mods i b{display:block;height:100%;background:var(--ok)}
-    button.cta{width:100%;margin-top:16px;padding:14px;border:0;background:var(--steel);color:#16140e;font-weight:700}
-    canvas#view{position:absolute;inset:0;width:100%;height:100%}
-    #hud{position:absolute;inset:0;pointer-events:none}
-    #cross{position:absolute;left:50%;top:48%;width:18px;height:18px;margin:-9px;border:1px solid #e6e1d4;opacity:.7}
-    #hp{position:absolute;left:18px;bottom:18px;width:42%;height:8px;background:#2a1c18}
-    #hp>b{display:block;height:100%;background:var(--red);width:100%}
-    #modhud{position:absolute;right:16px;bottom:16px;width:180px;font-size:11px;background:#10120fd9;padding:10px}
-    #st{position:absolute;left:18px;top:14px;font-size:13px;color:var(--dim)}
-    #fire,#back{pointer-events:auto;position:absolute;border:0}
-    #fire{right:22px;bottom:118px;width:74px;height:74px;border-radius:50%;background:#8b3a32;color:#fff;font-weight:700}
-    #back{left:18px;top:40px;background:transparent;color:var(--steel)}
-    #look{position:absolute;right:18px;top:18px;width:44%;height:42%;pointer-events:auto}
-  </style>
-</head>
-<body>
+<html lang="ru"><head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<title>IRONWAKE</title>
+<style>
+:root{--steel:#c2b48a;--dim:#8f8d80;--ink:#e6e1d4}
+*{box-sizing:border-box;-webkit-user-select:none;user-select:none}
+html,body{margin:0;height:100%;background:#0b0c0a;color:var(--ink);font-family:Segoe UI,sans-serif;overflow:hidden}
+#hangar,#battle{position:absolute;inset:0}#battle{display:none}
+header{display:flex;justify-content:space-between;padding:14px 16px 6px;align-items:flex-end}
+.kicker{letter-spacing:.28em;text-transform:uppercase;font-size:10px;color:var(--dim)}
+h1{margin:2px 0 0;font-size:34px}
+.wallet{display:flex;gap:12px;font-size:12px}.wallet b{color:var(--steel)}
+.grid{display:flex;flex-direction:column;gap:10px;padding:8px 16px 16px;height:calc(100% - 78px);overflow:auto}
+.card{background:#141612;border:1px solid #2a2c26;padding:14px}
+.veh{margin:8px 0;padding:12px;border:1px solid #2f322b}.veh.on{border-color:var(--steel);background:#1c1e18}
+.mods{display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;margin-top:10px}
+.mods i{display:block;height:5px;background:#2c2f28;margin-top:4px}.mods i b{display:block;height:100%;background:#7a9a68}
+.cta{width:100%;margin-top:12px;padding:16px;border:0;background:var(--steel);color:#16140e;font-weight:800}
+canvas#view{position:absolute;inset:0;width:100%;height:100%}
+#hud{position:absolute;inset:0;pointer-events:none}
+#st{position:absolute;left:12px;top:10px;font-size:13px;color:#c8c4b6;text-shadow:0 1px 2px #000}
+#cross{position:absolute;left:50%;top:46%;width:16px;height:16px;margin:-8px;border:1px solid #e6e1d4;opacity:.55}
+#hp{position:absolute;left:12px;bottom:12px;width:38%;height:8px;background:#2a1c18}#hp>b{display:block;height:100%;width:100%;background:#b4543c}
+#modhud{position:absolute;right:12px;top:42px;width:150px;font-size:11px;background:#10120fd9;padding:8px}
+.btn{pointer-events:auto;position:absolute;border:0;color:#fff;font-weight:700}
+#back{left:12px;top:34px;background:transparent;color:var(--steel);padding:8px}
+#cam{left:50%;transform:translateX(-50%);top:34px;background:#2b3326;padding:10px 14px;border:1px solid #5a6a4a}
+#fire{right:18px;bottom:28px;width:78px;height:78px;border-radius:50%;background:#8b3a32}
+.pad{pointer-events:auto;position:absolute;width:128px;height:128px;border:1px solid #3a3d36;border-radius:50%;background:#161714c8;bottom:22px;touch-action:none}
+#move{left:16px}#look{right:110px;bottom:22px}
+.knob{width:48px;height:48px;border-radius:50%;background:var(--steel);position:absolute;left:40px;top:40px}
+</style></head><body>
 <section id="hangar">
-  <header>
-    <div><div class="kicker">Ангар · last stand</div><h1>IRONWAKE</h1></div>
-    <div class="wallet"><div>Сталь <b>25000</b></div><div>Разведка <b>150</b></div><div>Награды <b>0</b></div></div>
-  </header>
-  <div class="grid">
-    <div class="card" id="list"></div>
-    <div class="card">
-      <div class="kicker">Модули</div>
-      <h2 id="vtitle">К-72 «Урал»</h2>
-      <p id="vdesc" style="color:var(--dim);font-size:14px">Основной танк. Бой от наводчика, без возрождения. Попадания по лбу, двигателю, БК и гусеницам.</p>
-      <div class="mods" id="mods"></div>
-      <button class="cta" id="go">В БОЙ</button>
-    </div>
-  </div>
-</section>
-<section id="battle">
-  <canvas id="view"></canvas>
-  <div id="hud">
-    <div id="st">подключение…</div>
-    <button id="back">АНГАР</button>
-    <div id="cross"></div><div id="look"></div>
-    <div id="hp"><b id="hpbar"></b></div>
-    <div id="modhud"></div>
-    <button id="fire">ОГОНЬ</button>
-  </div>
-</section>
-<script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js"}}</script>
-<script type="module">
-import * as THREE from "three";
-const API = (location.protocol.startsWith("http") && String(location.host).includes("biker9td") ? location.origin : "http://biker9td.beget.tech").replace(/\/$/,"");
-const VEHS = [
-  { id:"k72-ural", cls:"Танк", name:"К-72 Урал", text:"Тяжёлая машина. Наводчик ведёт огонь с места. Лоб держит, корма и БК нет." },
-  { id:"ka-52", cls:"Вертолёт", name:"Ка-52 Аллигатор", text:"Ударный вертолёт. Выше линии огня танков, уязвим к очередям." },
-  { id:"su-25", cls:"Штурмовик", name:"Су-25 Грач", text:"Штурмовка с малой высоты. Скорость вместо брони." }
-];
-const MODS = [["hull_front","Лоб корпуса"],["engine","Двигатель"],["ammo","Боеукладка"],["track_l","Гусеница Л"],["track_r","Гусеница П"]];
-let selected = VEHS[0], myId = "a"+Math.random().toString(36).slice(2,8), room="public", joined=false, units=[], yaw=Math.PI, pitch=0, x=8, z=22, y=2.2;
-const modules = { hull_front:1, engine:1, ammo:1, track_l:1, track_r:1 };
-const list = document.getElementById("list");
+<header><div><div class="kicker" id="kick">Ангар · last stand</div><h1>IRONWAKE</h1></div>
+<div class="wallet"><div>Сталь <b>25000</b></div><div>Разведка <b>150</b></div><div>Награды <b>0</b></div></div></header>
+<div class="grid"><div class="card" id="list"></div>
+<div class="card"><div class="kicker">Машина</div><h2 id="vtitle">К-72 Урал</h2>
+<p id="vdesc" style="color:var(--dim);font-size:14px">Танк. Камера из башни или сзади. Стики на экране.</p>
+<div class="mods" id="mods"></div><button class="cta" id="go">В БОЙ</button></div></div></section>
+<section id="battle"><canvas id="view"></canvas><div id="hud">
+<div id="st">подключение…</div><button class="btn" id="back">АНГАР</button>
+<button class="btn" id="cam">КАМЕРА: ВНУТРИ</button><div id="cross"></div>
+<div id="hp"><b id="hpbar"></b></div><div id="modhud"></div>
+<div class="pad" id="move"><div class="knob" id="mknob"></div></div>
+<div class="pad" id="look"><div class="knob" id="lknob"></div></div>
+<button class="btn" id="fire">ОГОНЬ</button></div></section>
+<script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+<script>
+(function(){
+var API=(location.protocol.indexOf("http")===0 && String(location.host).indexOf("biker9td")>=0?location.origin:"http://biker9td.beget.tech").replace(/\/$/,"");
+var VEHS=[{id:"k72-ural",cls:"Танк",name:"К-72 Урал",text:"Тяжёлая машина."},{id:"ka-52",cls:"Вертолёт",name:"Ка-52",text:"Ударный вертолёт."},{id:"su-25",cls:"Штурмовик",name:"Су-25",text:"Штурмовка."}];
+var MODS=[["hull_front","Лоб"],["engine","Двигатель"],["ammo","БК"],["track_l","Гус. Л"],["track_r","Гус. П"]];
+var selected=VEHS[0], myId="a"+Math.random().toString(36).slice(2,8), room="public", joined=false, units=[], camMode="inside";
+var yaw=Math.PI,pitch=0,x=8,z=22,y=2.2,vx=0,vz=0;
+var modules={hull_front:1,engine:1,ammo:1,track_l:1,track_r:1};
+var list=document.getElementById("list");
 function renderList(){
-  list.innerHTML = '<div class="kicker">Гараж</div>' + VEHS.map(v => `<div class="veh ${v.id===selected.id?"on":""}" data-id="${v.id}"><h3>${v.name}</h3><p>${v.cls}</p></div>`).join("");
-  list.querySelectorAll(".veh").forEach(el => el.onclick = () => {
-    selected = VEHS.find(v => v.id === el.dataset.id);
-    document.getElementById("vtitle").textContent = selected.name;
-    document.getElementById("vdesc").textContent = selected.text;
-    renderList(); renderMods();
-  });
+ list.innerHTML='<div class="kicker">Гараж</div>'+VEHS.map(function(v){return '<div class="veh '+(v.id===selected.id?"on":"")+'" data-id="'+v.id+'"><h3>'+v.name+'</h3><p>'+v.cls+'</p></div>';}).join("");
+ list.querySelectorAll(".veh").forEach(function(el){el.onclick=function(){selected=VEHS.filter(function(v){return v.id===el.getAttribute("data-id");})[0];document.getElementById("vtitle").textContent=selected.name;document.getElementById("vdesc").textContent=selected.text;renderList();renderMods();};});
 }
 function renderMods(){
-  document.getElementById("mods").innerHTML = MODS.map(([k,n]) => `<div>${n}<i><b style="width:${Math.round(modules[k]*100)}%"></b></i></div>`).join("");
-  document.getElementById("modhud").innerHTML = MODS.map(([k,n]) => `<div>${n}: ${Math.round(modules[k]*100)}%</div>`).join("");
+ document.getElementById("mods").innerHTML=MODS.map(function(m){return "<div>"+m[1]+"<i><b style='width:"+Math.round(modules[m[0]]*100)+"%'></b></i></div>";}).join("");
+ document.getElementById("modhud").innerHTML=MODS.map(function(m){return "<div>"+m[1]+": "+Math.round(modules[m[0]]*100)+"%</div>";}).join("");
 }
-renderList(); renderMods();
-fetch(API+"/health").then(r=>r.json()).then(j=>{ if(j.ok) document.querySelector(".kicker").textContent="Ангар · сервер жив · last stand"; }).catch(()=>{});
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x8aa0a8);
-scene.fog = new THREE.Fog(0x8aa0a8, 40, 220);
-const camera = new THREE.PerspectiveCamera(62, innerWidth/innerHeight, 0.1, 400);
-const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById("view"), antialias:true });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75));
-renderer.setSize(innerWidth, innerHeight);
-scene.add(new THREE.HemisphereLight(0xc8d4dc, 0x3a3224, 1.1));
-const sun = new THREE.DirectionalLight(0xfff1d0, 1.15); sun.position.set(-40,60,20); scene.add(sun);
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(400,400), new THREE.MeshStandardMaterial({color:0x5c6848, roughness:1}));
-ground.rotation.x = -Math.PI/2; scene.add(ground);
-function tree(px,pz){ const g=new THREE.Group(); const t=new THREE.Mesh(new THREE.CylinderGeometry(0.25,0.35,3.2,6), new THREE.MeshStandardMaterial({color:0x4a3828})); t.position.y=1.6; const c=new THREE.Mesh(new THREE.ConeGeometry(2.1,4.2,7), new THREE.MeshStandardMaterial({color:0x2f4a2a})); c.position.y=4.2; g.add(t,c); g.position.set(px,0,pz); scene.add(g); }
-for(let i=0;i<28;i++) tree((Math.random()-0.5)*160,(Math.random()-0.5)*160);
-const meshes = new Map();
-function vehMesh(kind, team){
-  const g=new THREE.Group(); const col=team==="blue"?0x4a5c48:0x6a4034;
-  if(kind==="ka-52"){ const body=new THREE.Mesh(new THREE.BoxGeometry(1.2,0.7,4.2), new THREE.MeshStandardMaterial({color:col})); body.position.y=6; const rotor=new THREE.Mesh(new THREE.BoxGeometry(7.5,0.08,0.35), new THREE.MeshStandardMaterial({color:0x222})); rotor.position.y=6.5; rotor.name="rotor"; g.add(body,rotor); }
-  else if(kind==="su-25"){ const body=new THREE.Mesh(new THREE.BoxGeometry(1.1,0.7,5.4), new THREE.MeshStandardMaterial({color:col})); body.position.y=12; const wing=new THREE.Mesh(new THREE.BoxGeometry(6.4,0.12,1.4), new THREE.MeshStandardMaterial({color:col})); wing.position.y=12; g.add(body,wing); }
-  else { const hull=new THREE.Mesh(new THREE.BoxGeometry(2.4,1.1,4.6), new THREE.MeshStandardMaterial({color:col})); hull.position.y=0.9; const turret=new THREE.Mesh(new THREE.BoxGeometry(1.6,0.7,1.8), new THREE.MeshStandardMaterial({color:col})); turret.position.y=1.7; const gun=new THREE.Mesh(new THREE.BoxGeometry(0.18,0.18,3.4), new THREE.MeshStandardMaterial({color:0x222})); gun.position.set(0,1.75,2.2); g.add(hull,turret,gun); }
-  return g;
+renderList();renderMods();
+fetch(API+"/health").then(function(r){return r.json();}).then(function(j){if(j.ok)document.getElementById("kick").textContent="Ангар · сервер жив";}).catch(function(){});
+if(!window.THREE){document.getElementById("kick").textContent="Нет Three.js — нужен интернет";return;}
+var THREE=window.THREE, scene=new THREE.Scene();
+scene.background=new THREE.Color(0x87a0a6);scene.fog=new THREE.Fog(0x87a0a6,50,240);
+var camera=new THREE.PerspectiveCamera(62,innerWidth/Math.max(1,innerHeight),0.1,400);
+var renderer=new THREE.WebGLRenderer({canvas:document.getElementById("view"),antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.6));renderer.setSize(innerWidth,innerHeight);
+scene.add(new THREE.HemisphereLight(0xd0dce0,0x3a3224,1.15));
+var sun=new THREE.DirectionalLight(0xfff1d0,1.2);sun.position.set(-50,70,20);scene.add(sun);
+var ground=new THREE.Mesh(new THREE.PlaneGeometry(420,420),new THREE.MeshStandardMaterial({color:0x5b6847,roughness:1}));
+ground.rotation.x=-Math.PI/2;scene.add(ground);
+function tree(px,pz){var g=new THREE.Group();var t=new THREE.Mesh(new THREE.CylinderGeometry(0.25,0.4,3.4,6),new THREE.MeshStandardMaterial({color:0x4a3828}));t.position.y=1.7;var c=new THREE.Mesh(new THREE.ConeGeometry(2.2,4.4,7),new THREE.MeshStandardMaterial({color:0x2f4a2a}));c.position.y=4.3;g.add(t,c);g.position.set(px,0,pz);scene.add(g);}
+for(var i=0;i<26;i++) tree((Math.random()-0.5)*170,(Math.random()-0.5)*170);
+function vehMesh(kind,team,mine){
+ var g=new THREE.Group(), col=mine?0xc2b48a:(team==="blue"?0x4a5c48:0x6a4034);
+ if(kind==="ka-52"){var body=new THREE.Mesh(new THREE.BoxGeometry(1.2,0.7,4.2),new THREE.MeshStandardMaterial({color:col}));body.position.y=6;var rotor=new THREE.Mesh(new THREE.BoxGeometry(7.6,0.08,0.35),new THREE.MeshStandardMaterial({color:0x222}));rotor.position.y=6.55;rotor.name="rotor";g.add(body,rotor);}
+ else if(kind==="su-25"){var body=new THREE.Mesh(new THREE.BoxGeometry(1.1,0.7,5.4),new THREE.MeshStandardMaterial({color:col}));body.position.y=12;var wing=new THREE.Mesh(new THREE.BoxGeometry(6.4,0.12,1.4),new THREE.MeshStandardMaterial({color:col}));wing.position.y=12;g.add(body,wing);}
+ else {var hull=new THREE.Mesh(new THREE.BoxGeometry(2.4,1.1,4.8),new THREE.MeshStandardMaterial({color:col}));hull.position.y=0.9;var turret=new THREE.Mesh(new THREE.BoxGeometry(1.7,0.72,1.9),new THREE.MeshStandardMaterial({color:col}));turret.position.y=1.72;var gun=new THREE.Mesh(new THREE.BoxGeometry(0.18,0.18,3.5),new THREE.MeshStandardMaterial({color:0x1a1a1a}));gun.position.set(0,1.78,2.3);g.add(hull,turret,gun);}
+ return g;
 }
-function setSt(t,ok){ const el=document.getElementById("st"); el.textContent=t; el.style.color=ok===false?"#c07060":"#b8b49a"; }
-async function post(path,body){ const r=await fetch(API+path,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body)}); return r.json(); }
-document.getElementById("go").onclick = async () => {
-  document.getElementById("hangar").style.display="none"; document.getElementById("battle").style.display="block"; onResize();
-  try { const j=await post("/room/join",{room,mode:"laststand",userId:myId,callsign:"OPERATOR",vehicleId:selected.id}); joined=!!j.ok; if(j.team==="red"){x=-8;z=-22;yaw=0;} setSt(selected.name+" · "+(j.team||"blue")+" · без возрождения",true); }
-  catch(e){ setSt("нет связи с комнатой",false); }
+var meshes=new Map(), selfMesh=vehMesh("k72-ural","blue",true);scene.add(selfMesh);
+function setSt(t,ok){var el=document.getElementById("st");el.textContent=t;el.style.color=ok===false?"#c07060":"#c8c4b6";}
+function post(path,body){return fetch(API+path,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body)}).then(function(r){return r.json();});}
+document.getElementById("go").onclick=function(){
+ document.getElementById("hangar").style.display="none";document.getElementById("battle").style.display="block";onResize();
+ post("/room/join",{room:room,mode:"laststand",userId:myId,callsign:"OPERATOR",vehicleId:selected.id}).then(function(j){
+  joined=!!j.ok;if(j.team==="red"){x=-8;z=-22;yaw=0;}setSt(selected.name+" · "+(j.team||"blue")+" · "+(camMode==="inside"?"изнутри":"сзади"),true);
+ }).catch(function(){setSt("локально без сервера",false);joined=true;});
 };
-document.getElementById("back").onclick=()=>{ document.getElementById("battle").style.display="none"; document.getElementById("hangar").style.display="block"; };
-let lookDx=0,lookDy=0,looking=false;
-const look=document.getElementById("look");
-look.addEventListener("pointerdown",e=>{looking=true;lookDx=e.clientX;lookDy=e.clientY;look.setPointerCapture(e.pointerId);});
-look.addEventListener("pointermove",e=>{ if(!looking)return; yaw-=(e.clientX-lookDx)*0.005; pitch=Math.max(-0.4,Math.min(0.35,pitch-(e.clientY-lookDy)*0.004)); lookDx=e.clientX; lookDy=e.clientY; });
-look.addEventListener("pointerup",()=>looking=false);
-let fwd=0,strafe=0;
-addEventListener("keydown",e=>{ if(e.key==="w"||e.key==="ц")fwd=1; if(e.key==="s"||e.key==="ы")fwd=-1; if(e.key==="a"||e.key==="ф")strafe=-1; if(e.key==="d"||e.key==="в")strafe=1; });
-addEventListener("keyup",e=>{ if("wsцы".includes(e.key))fwd=0; if("adфв".includes(e.key))strafe=0; });
+document.getElementById("back").onclick=function(){document.getElementById("battle").style.display="none";document.getElementById("hangar").style.display="block";};
+document.getElementById("cam").onclick=function(){camMode=camMode==="inside"?"chase":"inside";document.getElementById("cam").textContent=camMode==="inside"?"КАМЕРА: ВНУТРИ":"КАМЕРА: СЗАДИ";document.getElementById("cross").style.display=camMode==="inside"?"block":"none";};
+function bindPad(el,knob,onMove,onEnd){
+ function pos(ev){var t=ev.touches?ev.touches[0]:ev,r=el.getBoundingClientRect();var dx=t.clientX-(r.left+r.width/2),dy=t.clientY-(r.top+r.height/2);var max=r.width/2-10,len=Math.hypot(dx,dy)||1;if(len>max){dx*=max/len;dy*=max/len;}knob.style.left=(r.width/2+dx-24)+"px";knob.style.top=(r.height/2+dy-24)+"px";onMove(dx/max,dy/max);}
+ function end(){knob.style.left="40px";knob.style.top="40px";onEnd();}
+ el.addEventListener("touchstart",pos,{passive:true});el.addEventListener("touchmove",pos,{passive:true});el.addEventListener("touchend",end);
+ el.addEventListener("pointerdown",function(e){try{el.setPointerCapture(e.pointerId);}catch(err){}pos(e);});
+ el.addEventListener("pointermove",function(e){if(e.buttons)pos(e);});el.addEventListener("pointerup",end);
+}
+bindPad(document.getElementById("move"),document.getElementById("mknob"),function(dx,dy){vx=dx;vz=dy;},function(){vx=0;vz=0;});
+bindPad(document.getElementById("look"),document.getElementById("lknob"),function(dx,dy){yaw-=dx*0.06;pitch=Math.max(-0.45,Math.min(0.4,pitch-dy*0.05));},function(){});
 function shoot(){
-  const dir=new THREE.Vector3(Math.sin(yaw)*Math.cos(pitch), Math.sin(pitch), Math.cos(yaw)*Math.cos(pitch));
-  let best=null,bestD=90;
-  for(const u of units){ if(u.id===myId||u.alive===false)continue; const dx=u.x-x,dz=u.z-z,dy=(u.y||0)-y; const dist=Math.hypot(dx,dy,dz); const nd=new THREE.Vector3(dx,dy,dz).normalize(); if(dir.dot(nd)>0.92&&dist<bestD){best=u;bestD=dist;} }
-  if(best){ const module=bestD<25&&Math.abs((best.y||0)-y)>1.2?"engine":"hull_front"; post("/room/input",{room,userId:myId,x,y,z,yaw,turretYaw:yaw,gunPitch:pitch,hit:{target:best.id,module,damage:110}}); setSt("огонь · "+(best.callsign||best.id),true); }
-  else { post("/room/input",{room,userId:myId,x,y,z,yaw,turretYaw:yaw,gunPitch:pitch}); setSt("промах",false); }
+ var best=null,bestD=90,dir={x:Math.sin(yaw)*Math.cos(pitch),y:Math.sin(pitch),z:Math.cos(yaw)*Math.cos(pitch)};
+ for(var i=0;i<units.length;i++){var u=units[i];if(u.id===myId||u.alive===false)continue;var dx=u.x-x,dz=u.z-z,dy=(u.y||0)-y,dist=Math.hypot(dx,dy,dz),inv=1/(dist||1);if((dir.x*dx+dir.y*dy+dir.z*dz)*inv>0.9&&dist<bestD){best=u;bestD=dist;}}
+ var payload={room:room,userId:myId,x:x,y:y,z:z,yaw:yaw,turretYaw:yaw,gunPitch:pitch};
+ if(best) payload.hit={target:best.id,module:"hull_front",damage:110};
+ post("/room/input",payload).catch(function(){});setSt(best?("огонь · "+(best.callsign||best.id)):"промах",!!best);
 }
 document.getElementById("fire").onclick=shoot;
-addEventListener("keydown",e=>{ if(e.code==="Space"){e.preventDefault();shoot();}});
-setInterval(()=>{ if(!joined)return; const speed=selected.id==="su-25"?2.4:selected.id==="ka-52"?1.4:0.55; x+=(Math.sin(yaw)*fwd+Math.cos(yaw)*strafe)*speed; z+=(Math.cos(yaw)*fwd-Math.sin(yaw)*strafe)*speed; y=selected.id==="su-25"?12:selected.id==="ka-52"?6.2:2.2; post("/room/input",{room,userId:myId,x,y,z,yaw,turretYaw:yaw,gunPitch:pitch}).catch(()=>{}); },80);
-setInterval(async()=>{ if(document.getElementById("battle").style.display==="none")return; try{ const j=await(await fetch(API+"/room/state?room="+room)).json(); units=j.payload&&j.payload.units||[]; const mine=units.find(u=>u.id===myId); if(mine){ document.getElementById("hpbar").style.width=Math.max(0,Math.min(100,mine.hp/18))+"%"; if(mine.alive===false)setSt("машина уничтожена · без возрождения",false);} for(const ev of (j.events||[]).slice(-3)){ if(ev.type==="hit"&&ev.payload.id===myId){ modules[ev.payload.module||"hull_front"]=Math.max(0,(modules[ev.payload.module||"hull_front"]||1)-0.18); renderMods(); } } syncMeshes(); }catch(e){} },120);
-function syncMeshes(){ const seen=new Set(); for(const u of units){ if(u.id===myId)continue; seen.add(u.id); if(!meshes.has(u.id)){ const m=vehMesh(u.vehicleId||u.defId,u.team); meshes.set(u.id,m); scene.add(m);} const m=meshes.get(u.id); m.position.set(u.x,0,u.z); m.rotation.y=u.yaw||0; m.visible=u.alive!==false; const rotor=m.getObjectByName("rotor"); if(rotor)rotor.rotation.y+=0.4; } for(const [id,m] of meshes) if(!seen.has(id)){ scene.remove(m); meshes.delete(id);} }
-function onResize(){ camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); }
+setInterval(function(){
+ if(document.getElementById("battle").style.display==="none")return;
+ var speed=selected.id==="su-25"?2.2:selected.id==="ka-52"?1.3:0.58;
+ x+=(Math.sin(yaw)*(-vz)+Math.cos(yaw)*vx)*speed;z+=(Math.cos(yaw)*(-vz)-Math.sin(yaw)*vx)*speed;
+ y=selected.id==="su-25"?12:selected.id==="ka-52"?6.2:2.2;
+ if(joined) post("/room/input",{room:room,userId:myId,x:x,y:y,z:z,yaw:yaw,turretYaw:yaw,gunPitch:pitch}).catch(function(){});
+},80);
+setInterval(function(){
+ if(document.getElementById("battle").style.display==="none")return;
+ fetch(API+"/room/state?room="+room).then(function(r){return r.json();}).then(function(j){
+  units=(j.payload&&j.payload.units)||[];
+  var mine=units.filter(function(u){return u.id===myId;})[0];
+  if(mine){document.getElementById("hpbar").style.width=Math.max(0,Math.min(100,mine.hp/18))+"%";if(mine.alive===false)setSt("уничтожен · без возрождения",false);}
+  var seen={};
+  for(var i=0;i<units.length;i++){var u=units[i];if(u.id===myId)continue;seen[u.id]=1;if(!meshes.has(u.id)){var m=vehMesh(u.vehicleId||u.defId,u.team,false);meshes.set(u.id,m);scene.add(m);}var mm=meshes.get(u.id);mm.position.set(u.x,0,u.z);mm.rotation.y=u.yaw||0;mm.visible=u.alive!==false;var rotor=mm.getObjectByName("rotor");if(rotor)rotor.rotation.y+=0.45;}
+  meshes.forEach(function(m,id){if(!seen[id]){scene.remove(m);meshes.delete(id);}});
+ }).catch(function(){});
+},140);
+function onResize(){camera.aspect=innerWidth/Math.max(1,innerHeight);camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);}
 addEventListener("resize",onResize);
-function loop(){ requestAnimationFrame(loop); camera.position.set(x,y,z); camera.lookAt(x+Math.sin(yaw)*8,y+Math.sin(pitch)*8,z+Math.cos(yaw)*8); renderer.render(scene,camera); }
+function loop(){
+ requestAnimationFrame(loop);
+ selfMesh.position.set(x,0,z);selfMesh.rotation.y=yaw;selfMesh.visible=camMode==="chase";
+ if(camMode==="inside"){camera.position.set(x,y,z);camera.lookAt(x+Math.sin(yaw)*8,y+Math.sin(pitch)*8,z+Math.cos(yaw)*8);}
+ else {camera.position.set(x-Math.sin(yaw)*9,y+4.2,z-Math.cos(yaw)*9);camera.lookAt(x+Math.sin(yaw)*6,y+0.6,z+Math.cos(yaw)*6);}
+ renderer.render(scene,camera);
+}
 loop();
-</script>
-</body></html>
+})();
+</script></body></html>
