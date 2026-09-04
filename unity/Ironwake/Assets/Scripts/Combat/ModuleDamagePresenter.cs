@@ -84,8 +84,9 @@ namespace Ironwake.Combat
             var r = vis.GetComponent<Renderer>();
             if (r)
             {
-                r.material.color = new Color(baseColor.r, baseColor.g, baseColor.b, 0.35f);
-                // Transparent-ish default; damage shifts toward red + emission
+                // Nearly invisible by default so TankVisualBuilder mesh stays readable
+                r.material.color = new Color(baseColor.r, baseColor.g, baseColor.b, 0.08f);
+                r.enabled = false; // enable on damage flash via ApplyHit path if needed
                 TryEnableEmission(r.material, Color.black, 0f);
             }
             _zoneRenderers[id] = r;

@@ -116,6 +116,54 @@ namespace Ironwake.Net
             done?.Invoke(UserProfile.Parse(req.downloadHandler.text));
         }
 
+        /// <summary>
+        /// Best-effort meta report after a local (or online) match for rewards.
+        /// Server stores accounts/garage/currencies — not combat simulation.
+        /// </summary>
+        public IEnumerator ReportMatch(Ironwake.Sim.MatchResult result, Action<bool> done = null)
+        {
+            if (result == null)
+            {
+                done?.Invoke(false);
+                yield break;
+            }
+            string uid = string.IsNullOrEmpty(result.UserId) ? UserId : result.UserId;
+            var sb = new StringBuilder();
+            sb.Append("{\"userId\":\"").Append(Escape(uid)).Append("\",");
+            sb.Append("\"vehicleId\":\"").Append(Escape(result.VehicleId)).Append("\",");
+            sb.Append("\"team\":\"").Append(Escape(result.Team)).Append("\",");
+            sb.Append("\"winner\":\"").Append(Escape(result.Winner)).Append("\",");
+            sb.Append("\"victory\":").Append(result.Victory ? "true" : "false").Append(",");
+            sb.Append("\"survived\":").Append(result.Survived ? "true" : "false").Append(",");
+            sb.Append("\"duration\":").Append(F(result.DurationSec)).Append(",");
+            sb.Append("\"kills\":").Append(result.Kills).Append(",");
+            sb.Append("\"mode\":\"").Append(Escape(result.Mode ?? "local_laststand")).Append("\"}");
+            string body = sb.ToString();
+            using var req = new UnityWebRequest(BaseUrl + "/match", "POST");
+            req.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(body));
+            req.downloadHandler = new DownloadHandlerBuffer();
+            req.SetRequestHeader("Content-Type", "application/json");
+            req.timeout = 10;
+            yield return req.SendWebRequest();
+            bool ok = req.result == UnityWebRequest.Result.Success;
+            SetStatus(ok ? "POST /match ok" : ("POST /match fail: " + req.error));
+            done?.Invoke(ok);
+        }
+
+        public IEnumerator FetchAchievements(string userId, Action<string> done)
+        {
+            string id = string.IsNullOrEmpty(userId) ? UserId : userId;
+            using var req = UnityWebRequest.Get(BaseUrl + "/achievements?userId=" + UnityWebRequest.EscapeURL(id));
+            req.timeout = 8;
+            yield return req.SendWebRequest();
+            if (req.result != UnityWebRequest.Result.Success)
+            {
+                done?.Invoke(null);
+                yield break;
+            }
+            done?.Invoke(req.downloadHandler.text);
+        }
+
         public IEnumerator Join(string callsign, string vehicleId, string mode = "laststand", Action<bool> done = null)
         {
             Disconnect();

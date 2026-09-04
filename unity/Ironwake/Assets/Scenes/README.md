@@ -1,19 +1,18 @@
 # Scenes
 
-Placeholders. Open in **Unity Hub** (Unity 6 or 2022.3 LTS) — Editor regenerates `Library/`.
+Placeholders. Open in **Unity Hub** (Unity 6) — Editor regenerates `Library/`.
 
 | Scene | Purpose | Bootstrap |
 |-------|---------|-----------|
-| `Hangar.unity` | Сталь / Разведка / Награды, catalog, «В БОЙ» | `Meta/HangarUI` |
-| `Battle.unity` | laststand vs live server, HTTP poll 10–20 Hz | `Combat/BattleBootstrap` |
+| `Hangar.unity` | Wallet, catalog, **Локальный бой** + Онлайн | `Meta/HangarUI` |
+| `Battle.unity` | LocalSim (default) or online poll | `Combat/BattleBootstrap` |
 
 Both listed in `EditorBuildSettings.asset` (Hangar = 0).
 
 ## Wire-up
 
-1. Hangar: Directional Light + empty GO + `HangarUI`.
-2. Battle: empty GO + `BattleBootstrap` (spawns ground/sun/vehicle/remotes).
-3. Play Hangar → «В БОЙ». Camera toggle **V**. Death → spectator (no respawn).
+1. Hangar: empty GO + `HangarUI` (builds military canvas at runtime).
+2. Battle: empty GO + `BattleBootstrap` — builds environment, tanks, VFX, LocalSim.
+3. Play Hangar → **ЛОКАЛЬНЫЙ БОЙ**. Camera **V**. Death → spectator (no respawn).
 
-Live Beget: WS blocked → client auto-falls back to HTTP `/room/*`.
-If `battleSceneName` missing, Hangar boots battle in-place.
+`PlayerPrefs iw.battleMode`: `local` (default) | `online`.

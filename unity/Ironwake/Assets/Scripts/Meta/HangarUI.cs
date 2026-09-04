@@ -47,9 +47,10 @@ namespace Ironwake.Meta
             RefreshVehicle();
             PopulateList();
 
-            if (battleButton) battleButton.onClick.AddListener(OnBattle);
-            if (shopButton) shopButton.onClick.AddListener(OnShop);
-            if (achievementsButton) achievementsButton.onClick.AddListener(OnAchievements);
+            // Runtime-built buttons already have listeners; only wire inspector-assigned ones once.
+            if (battleButton && !_builtRuntimeUi) battleButton.onClick.AddListener(OnLocalBattle);
+            if (shopButton && !_builtRuntimeUi) shopButton.onClick.AddListener(OnShop);
+            if (achievementsButton && !_builtRuntimeUi) achievementsButton.onClick.AddListener(OnAchievements);
 
             StartCoroutine(BootSequence());
         }
@@ -90,8 +91,8 @@ namespace Ironwake.Meta
             }
 
             SetStatus(ok == true
-                ? (catOk ? "Ангар · каталог с сервера · HTTP poll (WS blocked on Beget)" : "Ангар · сервер жив · локальный каталог")
-                : "Ангар · сервер недоступен (локальный режим)");
+                ? (catOk ? "Ангар · мета с сервера · бой LocalSim на устройстве" : "Ангар · сервер жив · локальный каталог")
+                : "Ангар · офлайн · Local Battle доступен");
         }
 
         void BuildRuntimeCanvas()
@@ -133,9 +134,18 @@ namespace Ironwake.Meta
             listRt.offsetMax = new Vector2(-10, 0);
             vehicleListRoot = listGo.transform;
 
-            battleButton = MakeButton(canvasGo.transform, "В БОЙ", new Vector2(0.5f, 0.08f), OnBattle);
-            shopButton = MakeButton(canvasGo.transform, "МАГАЗИН", new Vector2(0.2f, 0.08f), OnShop);
-            achievementsButton = MakeButton(canvasGo.transform, "ДОСТИЖЕНИЯ", new Vector2(0.8f, 0.08f), OnAchievements);
+            // Primary: Local Battle (device engine). Secondary: Online room.
+            battleButton = MakeButton(canvasGo.transform, "ЛОКАЛЬНЫЙ БОЙ", new Vector2(0.38f, 0.09f), OnLocalBattle);
+            var onlineBtn = MakeButton(canvasGo.transform, "ОНЛАЙН", new Vector2(0.62f, 0.09f), OnOnlineBattle);
+            onlineBtn.GetComponent<Image>().color = new Color(0.35f, 0.4f, 0.45f);
+            shopButton = MakeButton(canvasGo.transform, "МАГАЗИН", new Vector2(0.15f, 0.09f), OnShop);
+            achievementsButton = MakeButton(canvasGo.transform, "ДОСТИЖЕНИЯ", new Vector2(0.85f, 0.09f), OnAchievements);
+
+            // Title banner
+            var title = MakeText(canvasGo.transform, "Title", new Vector2(20, -48), 22, TextAnchor.UpperLeft);
+            title.text = "IRONWAKE · ДВИЖОК НА УСТРОЙСТВЕ";
+            title.color = new Color(0.85f, 0.78f, 0.45f);
+            if (battleButton) battleButton.GetComponent<RectTransform>().sizeDelta = new Vector2(200, 52);
         }
 
         static Text MakeText(Transform parent, string name, Vector2 anchored, int size, TextAnchor align)
@@ -233,20 +243,43 @@ namespace Ironwake.Meta
             if (statusText) statusText.text = s;
         }
 
-        void OnBattle()
+        void OnBattle() => OnLocalBattle();
+
+        void OnLocalBattle()
         {
             if (_selected == null) return;
-            StartCoroutine(JoinAndLoad());
-        }
-
-        IEnumerator JoinAndLoad()
-        {
-            SetStatus("Вход в комнату…");
-            bool ok = false;
-            yield return IronwakeClient.Instance.Join(callsign, _selected.id, "laststand", s => ok = s);
-            SetStatus(ok ? IronwakeClient.Instance.LastStatus : "Не удалось войти — бой локально");
+            PlayerPrefs.SetString("iw.battleMode", "local");
             PlayerPrefs.SetString("iw.vehicle", _selected.id);
             PlayerPrefs.SetString("iw.callsign", callsign);
+            if (IronwakeClient.Instance != null)
+                PlayerPrefs.SetString("iw.userId", IronwakeClient.Instance.UserId);
+            SetStatus("Локальный бой · симуляция на устройстве…");
+            LoadBattle();
+        }
+
+        void OnOnlineBattle()
+        {
+            if (_selected == null) return;
+            StartCoroutine(JoinAndLoadOnline());
+        }
+
+        IEnumerator JoinAndLoadOnline()
+        {
+            PlayerPrefs.SetString("iw.battleMode", "online");
+            SetStatus("Онлайн · вход в комнату…");
+            bool ok = false;
+            yield return IronwakeClient.Instance.Join(callsign, _selected.id, "laststand", s => ok = s);
+            SetStatus(ok ? IronwakeClient.Instance.LastStatus : "Онлайн недоступен — запускаю локальный бой");
+            if (!ok) PlayerPrefs.SetString("iw.battleMode", "local");
+            PlayerPrefs.SetString("iw.vehicle", _selected.id);
+            PlayerPrefs.SetString("iw.callsign", callsign);
+            if (IronwakeClient.Instance != null)
+                PlayerPrefs.SetString("iw.userId", IronwakeClient.Instance.UserId);
+            LoadBattle();
+        }
+
+        void LoadBattle()
+        {
             if (!string.IsNullOrEmpty(battleSceneName) && Application.CanStreamedLevelBeLoaded(battleSceneName))
                 SceneManager.LoadScene(battleSceneName);
             else
@@ -256,13 +289,6 @@ namespace Ironwake.Meta
         void BootBattleHere()
         {
             foreach (var c in Object.FindObjectsOfType<Canvas>()) Destroy(c.gameObject);
-            var ground = GameObject.CreatePrimitive(PrimitiveType.Plane);
-            ground.name = "Ground";
-            ground.transform.localScale = Vector3.one * 40f;
-            ground.GetComponent<Renderer>().material.color = new Color(0.36f, 0.41f, 0.28f);
-            var light = new GameObject("Sun").AddComponent<Light>();
-            light.type = LightType.Directional;
-            light.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
             var boot = new GameObject("BattleBootstrap").AddComponent<BattleBootstrap>();
             Destroy(gameObject);
         }
