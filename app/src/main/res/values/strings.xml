@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">IRONWAKE</string>
+    <!-- Point this at your deployed hangar. Local preview is not reachable from a device. -->
+    <string name="game_url">https://grok.com</string>
+</resources>
