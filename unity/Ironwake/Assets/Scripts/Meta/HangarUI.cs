@@ -62,25 +62,25 @@ namespace Ironwake.Meta
             go.AddComponent<IronwakeClient>();
         }
 
+        string _statusLine = "Ангар · загрузка…";
+
         void OnGUI()
         {
-            // Emergency HUD if uGUI shaders strip to magenta on device
-            const float pad = 12f;
-            GUI.color = Color.white;
-            var box = new Rect(pad, pad, Screen.width - pad * 2f, 72f);
-            GUI.Box(box, "");
-            GUI.Label(new Rect(pad + 8f, pad + 8f, box.width - 16f, 28f),
-                "IRONWAKE · АНГАР", new GUIStyle(GUI.skin.label) { fontSize = 22, fontStyle = FontStyle.Bold });
-            string st = statusText != null ? statusText.text : "загрузка…";
-            GUI.Label(new Rect(pad + 8f, pad + 36f, box.width - 16f, 28f), st);
-            float bw = 200f, bh = 48f, y = Screen.height - bh - pad;
-            if (GUI.Button(new Rect(pad, y, bw, bh), "ЛОКАЛЬНЫЙ БОЙ"))
+            // Primary controls — reliable on Android even when uGUI shaders are magenta
+            float pad = 16f * Mathf.Max(1f, Screen.dpi / 160f);
+            float bh = Mathf.Max(64f, Screen.height * 0.09f);
+            float bw = (Screen.width - pad * 3f) * 0.5f;
+            var title = new GUIStyle(GUI.skin.box) { fontSize = Mathf.RoundToInt(22 * Screen.dpi / 160f), alignment = TextAnchor.MiddleLeft };
+            var btn = new GUIStyle(GUI.skin.button) { fontSize = Mathf.RoundToInt(20 * Screen.dpi / 160f), fontStyle = FontStyle.Bold };
+            GUI.Box(new Rect(pad, pad, Screen.width - pad * 2f, bh), "  IRONWAKE · АНГАР\n  " + _statusLine, title);
+            float y = Screen.height - bh - pad;
+            if (GUI.Button(new Rect(pad, y, bw, bh), "ЛОКАЛЬНЫЙ БОЙ", btn))
                 OnLocalBattle();
-            if (GUI.Button(new Rect(pad + bw + 12f, y, bw, bh), "ОНЛАЙН"))
+            if (GUI.Button(new Rect(pad * 2f + bw, y, bw, bh), "ОНЛАЙН / СЕРВЕР", btn))
                 OnOnlineBattle();
         }
 
-                IEnumerator BootSequence()
+        IEnumerator BootSequence()
         {
             SetStatus("Ангар · подключение…");
             bool? ok = null;
@@ -262,26 +262,38 @@ namespace Ironwake.Meta
 
         void SetStatus(string s)
         {
+            _statusLine = s ?? "";
             if (statusText) statusText.text = s;
         }
 
         void OnBattle() => OnLocalBattle();
 
+        void EnsureSelected()
+        {
+            if (catalog == null) catalog = VehicleCatalog.CreateDefaultRuntime();
+            if (catalog.vehicles == null || catalog.vehicles.Count == 0)
+                catalog.vehicles = VehicleCatalog.BuildFallbackList();
+            if (_selected == null)
+                _selected = catalog.vehicles[0];
+        }
+
         void OnLocalBattle()
         {
-            if (_selected == null) return;
+            EnsureSelected();
             PlayerPrefs.SetString("iw.battleMode", "local");
             PlayerPrefs.SetString("iw.vehicle", _selected.id);
             PlayerPrefs.SetString("iw.callsign", callsign);
+            PlayerPrefs.Save();
             if (IronwakeClient.Instance != null)
                 PlayerPrefs.SetString("iw.userId", IronwakeClient.Instance.UserId);
-            SetStatus("Локальный бой · симуляция на устройстве…");
-            LoadBattle();
+            SetStatus("Локальный бой · запуск…");
+            Debug.Log("[IRONWAKE] OnLocalBattle → BootBattleHere");
+            BootBattleHere();
         }
 
         void OnOnlineBattle()
         {
-            if (_selected == null) return;
+            EnsureSelected();
             StartCoroutine(JoinAndLoadOnline());
         }
 
@@ -297,21 +309,53 @@ namespace Ironwake.Meta
             PlayerPrefs.SetString("iw.callsign", callsign);
             if (IronwakeClient.Instance != null)
                 PlayerPrefs.SetString("iw.userId", IronwakeClient.Instance.UserId);
-            LoadBattle();
-        }
-
-        void LoadBattle()
-        {
-            if (!string.IsNullOrEmpty(battleSceneName) && Application.CanStreamedLevelBeLoaded(battleSceneName))
-                SceneManager.LoadScene(battleSceneName);
+            PlayerPrefs.Save();
+            if (PlayerPrefs.GetString("iw.battleMode", "local") == "online" && Application.CanStreamedLevelBeLoaded(battleSceneName))
+                LoadBattle();
             else
                 BootBattleHere();
         }
 
+        void LoadBattle()
+        {
+            // Prefer in-place boot: stub Battle.unity + fake GUIDs are unreliable on device.
+            try
+            {
+                if (!string.IsNullOrEmpty(battleSceneName) && Application.CanStreamedLevelBeLoaded(battleSceneName))
+                {
+                    Debug.Log("[IRONWAKE] LoadScene " + battleSceneName);
+                    SceneManager.LoadScene(battleSceneName);
+                    return;
+                }
+                if (SceneManager.sceneCountInBuildSettings >= 2)
+                {
+                    Debug.Log("[IRONWAKE] LoadScene build index 1");
+                    SceneManager.LoadScene(1);
+                    return;
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogWarning("[IRONWAKE] LoadScene failed: " + ex.Message);
+            }
+            BootBattleHere();
+        }
+
         void BootBattleHere()
         {
-            foreach (var c in Object.FindObjectsOfType<Canvas>()) Destroy(c.gameObject);
-            var boot = new GameObject("BattleBootstrap").AddComponent<BattleBootstrap>();
+            Debug.Log("[IRONWAKE] BootBattleHere (in-place LocalSim)");
+            foreach (var c in Object.FindObjectsOfType<Canvas>())
+                Destroy(c.gameObject);
+            // Keep this HangarUI alive until BattleBootstrap.Start runs — then remove hangar chrome.
+            if (Object.FindObjectOfType<BattleBootstrap>() == null)
+                new GameObject("BattleBootstrap").AddComponent<BattleBootstrap>();
+            // Remove hangar UI host next frame so bootstrap can Start
+            StartCoroutine(RemoveHangarNextFrame());
+        }
+
+        System.Collections.IEnumerator RemoveHangarNextFrame()
+        {
+            yield return null;
             Destroy(gameObject);
         }
 
