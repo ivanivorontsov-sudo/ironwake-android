@@ -31,6 +31,7 @@ jobs:
           set -euxo pipefail
           sudo apt-get update
           sudo apt-get install -y openjdk-17-jdk unzip rsync
+          export PATH="$JAVA_HOME/bin:$PATH"
           java -version
 
       - name: Download official Godot 4.4 Linux binary
@@ -64,6 +65,7 @@ jobs:
             "https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip"
           unzip -q /tmp/cmdline-tools.zip -d "$ANDROID_SDK_ROOT/cmdline-tools"
           mv "$ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools" "$ANDROID_SDK_ROOT/cmdline-tools/latest"
+          export PATH="$JAVA_HOME/bin:$PATH"
           yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
           "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 
@@ -78,16 +80,19 @@ jobs:
 export/android/android_sdk_path = "$ANDROID_SDK_ROOT"
 export/android/java_sdk_path = "$JAVA_HOME"
 EOF
-          test -s "$HOME/.config/godot/editor_settings-4.tres"
+          cat "$HOME/.config/godot/editor_settings-4.tres"
 
       - name: Install Godot export templates
         run: |
           set -euxo pipefail
-          mkdir -p "$HOME/.local/share/godot/export_templates/4.4.stable"
-          rsync -a "$TEMPLATES_DIR/templates/" "$HOME/.local/share/godot/export_templates/4.4.stable/"
-          test -s "$HOME/.local/share/godot/export_templates/4.4.stable/android_debug.apk"
+          DEST="$HOME/.local/share/godot/export_templates/4.4.stable"
+          mkdir -p "$DEST"
+          rsync -a "$TEMPLATES_DIR/templates/" "$DEST/"
+          test -s "$DEST/android_debug.apk"
+          test -s "$DEST/android_release.apk"
+          ls -lh "$DEST/android_debug.apk" "$DEST/android_release.apk"
 
-      - name: Import Godot project
+      - name: Import and validate project
         run: |
           set -euxo pipefail
           "$GODOT_ROOT/godot" --headless --path "$PROJECT_DIR" --editor --import
