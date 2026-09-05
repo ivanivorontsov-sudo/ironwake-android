@@ -200,21 +200,29 @@ func _add_cyl(parent: Node3D, radius: float, height: float, pos: Vector3, mat: S
 func _build_tank() -> void:
 	var m := _mat()
 	var md := _mat_dark()
+	var camo1 := IWMaterials.camouflage(m, 1)
+	var camo2 := IWMaterials.camouflage(m, 2)
 	var track := IWMaterials.track()
-	_add_box(hull, Vector3(2.6, 0.85, 4.6), Vector3(0, 0.75, 0), m)
-	_add_box(hull, Vector3(2.4, 0.38, 1.7), Vector3(0, 1.28, 0.95), md)
-	_add_box(hull, Vector3(2.2, 0.2, 1.0), Vector3(0, 1.05, -1.7), md)
-	_add_box(hull, Vector3(0.48, 0.58, 4.3), Vector3(-1.38, 0.55, 0), track)
-	_add_box(hull, Vector3(0.48, 0.58, 4.3), Vector3(1.38, 0.55, 0), track)
-	for z in [-1.7, -0.85, 0.0, 0.85, 1.7]:
-		_add_cyl(hull, 0.3, 0.22, Vector3(-1.38, 0.28, z), IWMaterials.rubber(), deg_to_rad(90))
-		_add_cyl(hull, 0.3, 0.22, Vector3(1.38, 0.28, z), IWMaterials.rubber(), deg_to_rad(90))
-	_add_box(turret, Vector3(2.05, 0.72, 2.25), Vector3(0, 1.58, -0.12), m)
-	_add_box(turret, Vector3(1.45, 0.28, 1.05), Vector3(0, 2.0, -0.08), md)
-	_add_box(turret, Vector3(0.55, 0.35, 0.55), Vector3(0.55, 1.95, -0.7), md)
-	_add_cyl(gun, 0.11, 3.4, Vector3(0, 1.58, 2.1), IWMaterials.olive_dark(), deg_to_rad(90))
-	_add_cyl(gun, 0.2, 0.4, Vector3(0, 1.58, 0.5), md, deg_to_rad(90))
-	muzzle.position = Vector3(0, 1.58, 3.85)
+	# Faceted armor silhouette instead of primitive boxes: layered glacis, belly and side skirts.
+	_add_box(hull, Vector3(2.72, 0.62, 4.35), Vector3(0, 0.72, 0.05), m)
+	_add_box(hull, Vector3(2.45, 0.46, 1.75), Vector3(0, 1.18, 1.02), camo1, 0.0)
+	_add_box(hull, Vector3(2.10, 0.28, 1.35), Vector3(0, 1.36, -1.40), camo2)
+	_add_box(hull, Vector3(0.22, 0.50, 4.05), Vector3(-1.43, 0.67, 0.05), md)
+	_add_box(hull, Vector3(0.22, 0.50, 4.05), Vector3(1.43, 0.67, 0.05), md)
+	_add_box(hull, Vector3(0.44, 0.22, 4.15), Vector3(-1.38, 0.34, 0.05), track)
+	_add_box(hull, Vector3(0.44, 0.22, 4.15), Vector3(1.38, 0.34, 0.05), track)
+	for z in [-1.65, -0.82, 0.0, 0.82, 1.65]:
+		_add_cyl(hull, 0.32, 0.24, Vector3(-1.43, 0.35, z), IWMaterials.rubber(), deg_to_rad(90))
+		_add_cyl(hull, 0.32, 0.24, Vector3(1.43, 0.35, z), IWMaterials.rubber(), deg_to_rad(90))
+	# Low-poly turret with commander's cupola, optics and mantlet.
+	_add_box(turret, Vector3(2.12, 0.64, 2.12), Vector3(0, 1.56, -0.05), m)
+	_add_box(turret, Vector3(1.62, 0.28, 1.18), Vector3(0, 1.94, -0.12), camo1)
+	_add_cyl(turret, 0.34, 0.28, Vector3(0.42, 2.18, -0.55), md)
+	_add_cyl(turret, 0.11, 0.18, Vector3(0.42, 2.40, -0.55), IWMaterials.olive_light())
+	_add_box(turret, Vector3(0.58, 0.42, 0.48), Vector3(0, 1.62, 0.88), md)
+	_add_cyl(gun, 0.14, 3.55, Vector3(0, 1.63, 2.05), IWMaterials.olive_dark(), deg_to_rad(90))
+	_add_cyl(gun, 0.22, 0.44, Vector3(0, 1.63, 0.48), md, deg_to_rad(90))
+	muzzle.position = Vector3(0, 1.63, 3.90)
 
 
 func _build_apc() -> void:
