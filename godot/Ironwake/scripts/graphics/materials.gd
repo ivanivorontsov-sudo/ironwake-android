@@ -72,6 +72,15 @@ static func fire_emissive() -> StandardMaterial3D:
 	m.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL
 	return m
 
+static func canopy() -> StandardMaterial3D:
+	var m := _base(Color(0.08, 0.18, 0.22, 0.72), 0.18, 0.12)
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.metallic_specular = 0.9
+	m.emission_enabled = true
+	m.emission = Color(0.015, 0.045, 0.06)
+	m.emission_energy_multiplier = 0.5
+	return m
+
 static func smoke_mat() -> StandardMaterial3D:
 	var m := _base(Color(0.16, 0.17, 0.16, 0.48), 1.0, 0.0)
 	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
