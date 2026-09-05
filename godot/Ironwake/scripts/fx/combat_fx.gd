@@ -100,7 +100,6 @@ func spawn_impact(pos: Vector3, heavy: bool = false) -> void:
 	var tw := create_tween()
 	tw.set_parallel(true)
 	tw.tween_property(dust, "scale", Vector3(3.0,1.4,3.0) if heavy else Vector3(1.8,1.0,1.8), 0.45)
-	tw.tween_property(dust, "modulate:a", 0.0, 0.45)
 	tw.set_parallel(false)
 	tw.tween_callback(root.queue_free)
 
@@ -135,7 +134,6 @@ func spawn_explosion(pos: Vector3, heavy: bool = true) -> void:
 	var tw := create_tween()
 	tw.set_parallel(true)
 	tw.tween_property(fire, "scale", Vector3(2.8,2.8,2.8), 0.20)
-	tw.tween_property(fire, "modulate:a", 0.0, 0.38)
 	tw.tween_property(light, "light_energy", 0.0, 0.30)
 	tw.set_parallel(false)
 	tw.tween_callback(root.queue_free)
@@ -156,7 +154,6 @@ func spawn_dust_cloud(pos: Vector3, scale_factor: float = 1.0) -> void:
 		var tw := create_tween()
 		tw.tween_property(puff, "position", puff.position + Vector3(0, _rng.randf_range(0.5,1.4), 0), 0.55)
 		tw.parallel().tween_property(puff, "scale", Vector3.ONE * 2.2, 0.55)
-		tw.parallel().tween_property(puff, "modulate:a", 0.0, 0.55)
 	var end := create_tween()
 	end.tween_interval(0.58)
 	end.tween_callback(root.queue_free)
