@@ -92,11 +92,14 @@ func _on_event(ev: Dictionary) -> void:
 		hud.set_status("Попадание · %s · %s" % [ev.get("module", "?"), "pen" if ev.get("pen") else "spall"])
 		var hp := Vector3(float(ev.get("x", 0)), float(ev.get("y", 1)), float(ev.get("z", 0)))
 		fx.spawn_hit_sparks(hp)
+		fx.spawn_impact(hp, bool(ev.get("pen", false)))
 		fx.play_hit_stub()
 	elif t == "impact":
-		fx.spawn_hit_sparks(Vector3(float(ev.get("x", 0)), float(ev.get("y", 0.2)), float(ev.get("z", 0))))
+		fx.spawn_impact(Vector3(float(ev.get("x", 0)), float(ev.get("y", 0.2)), float(ev.get("z", 0))), false)
 	elif t == "kill":
-		hud.set_status("Уничтожен · %s" % ev.get("id", ""))
+		var kp := Vector3(float(ev.get("x", 0)), float(ev.get("y", 1)), float(ev.get("z", 0)))
+		fx.spawn_explosion(kp, true)
+		hud.set_status("УНИЧТОЖЕН · %s" % ev.get("id", ""))
 	elif t == "cookoff":
 		hud.set_status("COOK-OFF · %s" % ev.get("id", ""))
 	elif t == "fire_start":
