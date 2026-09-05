@@ -49,7 +49,7 @@ jobs:
           export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
           export PATH="$GITHUB_WORKSPACE/android-sdk/cmdline-tools/latest/bin:$GITHUB_WORKSPACE/android-sdk/platform-tools:$JAVA_HOME/bin:$PATH"
           java -version
-          yes | sdkmanager --licenses >/dev/null 2>&1 || true
+          yes | sdkmanager --licenses </dev/null >/dev/null 2>&1 || true
           yes | sdkmanager --sdk_root="$GITHUB_WORKSPACE/android-sdk" "platform-tools" "platforms;android-34" "build-tools;34.0.0"
 
       - name: Configure Godot Android paths
