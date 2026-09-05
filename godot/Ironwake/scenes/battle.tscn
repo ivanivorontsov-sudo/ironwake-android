@@ -1,10 +1,38 @@
-[gd_scene load_steps=6 format=3 uid="uid://bbattle001iw"]
+[gd_scene load_steps=9 format=3 uid="uid://bbattle001iw"]
 
 [ext_resource type="Script" path="res://scripts/combat/battle_bootstrap.gd" id="1_boot"]
 [ext_resource type="Script" path="res://scripts/combat/tank_controller.gd" id="2_ctrl"]
 [ext_resource type="Script" path="res://scripts/input/battle_hud.gd" id="3_hud"]
 [ext_resource type="Script" path="res://scripts/input/virtual_stick.gd" id="4_stick"]
 [ext_resource type="Script" path="res://scripts/input/crosshair.gd" id="5_cross"]
+
+[sub_resource type="StyleBoxFlat" id="HUDPanel"]
+bg_color = Color(0.025, 0.035, 0.03, 0.78)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.55, 0.62, 0.46, 0.45)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+content_margin_left = 12.0
+content_margin_top = 7.0
+content_margin_right = 12.0
+content_margin_bottom = 7.0
+
+[sub_resource type="StyleBoxFlat" id="FireButton"]
+bg_color = Color(0.30, 0.08, 0.035, 0.88)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.92, 0.50, 0.18, 0.85)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
 
 [node name="Battle" type="Node3D"]
 script = ExtResource("1_boot")
@@ -41,6 +69,104 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
+[node name="TopPanel" type="Panel" parent="BattleHUD/Root"]
+layout_mode = 1
+anchors_preset = 10
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -300.0
+offset_top = 18.0
+offset_right = 300.0
+offset_bottom = 92.0
+grow_horizontal = 2
+theme_override_styles/panel = SubResource("HUDPanel")
+mouse_filter = 2
+
+[node name="Title" type="Label" parent="BattleHUD/Root/TopPanel"]
+layout_mode = 0
+offset_left = 12.0
+offset_top = 5.0
+offset_right = 588.0
+offset_bottom = 28.0
+theme_override_colors/font_color = Color(0.78, 0.84, 0.70, 1)
+theme_override_font_sizes/font_size = 12
+text = "IRONWAKE  /  COMBAT SYSTEMS"
+
+[node name="HpBar" type="ProgressBar" parent="BattleHUD/Root"]
+layout_mode = 1
+anchors_preset = 10
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -270.0
+offset_top = 48.0
+offset_right = 270.0
+offset_bottom = 68.0
+grow_horizontal = 2
+max_value = 1800.0
+value = 1800.0
+show_percentage = false
+
+[node name="Status" type="Label" parent="BattleHUD/Root"]
+layout_mode = 1
+anchors_preset = 10
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -270.0
+offset_top = 72.0
+offset_right = 270.0
+offset_bottom = 94.0
+grow_horizontal = 2
+theme_override_font_sizes/font_size = 13
+theme_override_colors/font_color = Color(0.92, 0.90, 0.76, 1)
+horizontal_alignment = 1
+text = "Бой"
+
+[node name="Economy" type="Label" parent="BattleHUD/Root"]
+layout_mode = 1
+anchors_preset = 10
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -270.0
+offset_top = 118.0
+offset_right = 270.0
+offset_bottom = 140.0
+grow_horizontal = 2
+theme_override_font_sizes/font_size = 11
+theme_override_colors/font_color = Color(0.72, 0.82, 0.55, 0.95)
+horizontal_alignment = 1
+text = "КРЕДИТЫ 0  ·  ДОСТИЖЕНИЯ 0  ·  KILLS 0"
+
+[node name="Modules" type="Label" parent="BattleHUD/Root"]
+layout_mode = 1
+anchors_preset = 10
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -270.0
+offset_top = 94.0
+offset_right = 270.0
+offset_bottom = 118.0
+grow_horizontal = 2
+theme_override_font_sizes/font_size = 12
+theme_override_colors/font_color = Color(0.88, 0.65, 0.34, 1)
+horizontal_alignment = 1
+
+[node name="Hint" type="Label" parent="BattleHUD/Root"]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 0.0
+anchor_right = 1.0
+anchor_bottom = 0.0
+offset_left = -250.0
+offset_top = 18.0
+offset_right = -24.0
+offset_bottom = 48.0
+grow_horizontal = 0
+theme_override_colors/font_color = Color(0.68, 0.74, 0.64, 0.85)
+theme_override_font_sizes/font_size = 11
+horizontal_alignment = 2
+text = "V — КАМЕРА"
+
 [node name="Stick" type="Control" parent="BattleHUD/Root"]
 layout_mode = 1
 anchors_preset = 2
@@ -61,83 +187,50 @@ anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = -200.0
-offset_top = -120.0
+offset_top = -130.0
 offset_right = -24.0
 offset_bottom = -24.0
 grow_horizontal = 0
 grow_vertical = 0
-theme_override_font_sizes/font_size = 26
+theme_override_font_sizes/font_size = 24
+theme_override_styles/normal = SubResource("FireButton")
 text = "ОГОНЬ"
 
 [node name="BtnCamera" type="Button" parent="BattleHUD/Root"]
 layout_mode = 1
-anchors_preset = 1
+anchors_preset = 3
 anchor_left = 1.0
+anchor_top = 1.0
 anchor_right = 1.0
+anchor_bottom = 1.0
 offset_left = -200.0
-offset_top = 24.0
+offset_top = -202.0
 offset_right = -24.0
-offset_bottom = 88.0
+offset_bottom = -142.0
 grow_horizontal = 0
-theme_override_font_sizes/font_size = 18
+grow_vertical = 0
+theme_override_font_sizes/font_size = 17
 text = "КАМЕРА"
 
+[node name="BtnBots" type="Button" parent="BattleHUD/Root"]
+layout_mode = 0
+offset_left = 216.0
+offset_top = 24.0
+offset_right = 340.0
+offset_bottom = 80.0
+theme_override_font_sizes/font_size = 15
+text = "БОТ: 1"
+
 [node name="BtnHangar" type="Button" parent="BattleHUD/Root"]
-layout_mode = 1
-anchors_preset = 0
+layout_mode = 0
 offset_left = 24.0
 offset_top = 24.0
 offset_right = 200.0
-offset_bottom = 88.0
-theme_override_font_sizes/font_size = 18
+offset_bottom = 80.0
+theme_override_font_sizes/font_size = 17
 text = "АНГАР"
 
-[node name="HpBar" type="ProgressBar" parent="BattleHUD/Root"]
-layout_mode = 1
-anchors_preset = 5
-anchor_left = 0.5
-anchor_right = 0.5
-offset_left = -180.0
-offset_top = 28.0
-offset_right = 180.0
-offset_bottom = 52.0
-grow_horizontal = 2
-max_value = 1800.0
-value = 1800.0
-show_percentage = false
-
-[node name="Status" type="Label" parent="BattleHUD/Root"]
-layout_mode = 1
-anchors_preset = 5
-anchor_left = 0.5
-anchor_right = 0.5
-offset_left = -320.0
-offset_top = 56.0
-offset_right = 320.0
-offset_bottom = 84.0
-grow_horizontal = 2
-theme_override_font_sizes/font_size = 15
-theme_override_colors/font_color = Color(0.92, 0.9, 0.78, 1)
-horizontal_alignment = 1
-text = "Бой"
-
-[node name="Modules" type="Label" parent="BattleHUD/Root"]
-layout_mode = 1
-anchors_preset = 5
-anchor_left = 0.5
-anchor_right = 0.5
-offset_left = -360.0
-offset_top = 84.0
-offset_right = 360.0
-offset_bottom = 112.0
-grow_horizontal = 2
-theme_override_font_sizes/font_size = 13
-theme_override_colors/font_color = Color(0.85, 0.7, 0.45, 1)
-horizontal_alignment = 1
-text = ""
-
 [node name="Crosshair" type="Control" parent="BattleHUD/Root"]
-script = ExtResource("5_cross")
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
@@ -151,4 +244,4 @@ offset_bottom = 60.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-
+script = ExtResource("5_cross")

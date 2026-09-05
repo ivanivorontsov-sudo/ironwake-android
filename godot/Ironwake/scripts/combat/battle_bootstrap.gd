@@ -17,6 +17,7 @@ var _match_start_msec: int = 0
 var _reported: bool = false
 var _cam_smooth_pos: Vector3 = Vector3.ZERO
 var _cam_ready: bool = false
+var _bot_count: int = 2
 
 
 func _ready() -> void:
@@ -43,6 +44,8 @@ func _ready() -> void:
 	hud.fire_released.connect(func(): controller.fire_held = false)
 	hud.camera_pressed.connect(_toggle_camera)
 	hud.hangar_pressed.connect(_to_hangar)
+	hud.bots_pressed.connect(_toggle_bots)
+	hud.set_bot_count(_bot_count)
 
 	_match_start_msec = Time.get_ticks_msec()
 	sim.start_local_battle(
@@ -54,6 +57,7 @@ func _ready() -> void:
 	chase_camera.current = true
 	gunner_camera.current = false
 	hud.set_status("Локальный бой · last stand · без респавна")
+	hud.set_economy(GameState.credits, GameState.achievements.size(), GameState.kills)
 	hud.set_gunner_mode(false)
 
 
@@ -72,6 +76,17 @@ func _apply_camera() -> void:
 	chase_camera.current = not fps
 	hud.set_gunner_mode(fps)
 
+
+func _toggle_bots() -> void:
+	# Cycle 1..8; never allow zero because LocalBattleSim would end immediately.
+	_bot_count = 1 if _bot_count >= 8 else _bot_count + 1
+	sim.set_bot_count(_bot_count)
+	# Clear transient input state so changing the room never leaves controls locked.
+	controller.fire_held = false
+	controller.brake_held = false
+	controller.release_aim_input()
+	hud.set_bot_count(_bot_count)
+	hud.set_status("Противников: %d · управление готово" % _bot_count)
 
 func _to_hangar() -> void:
 	get_tree().change_scene_to_file("res://scenes/hangar.tscn")
@@ -92,11 +107,14 @@ func _on_event(ev: Dictionary) -> void:
 		hud.set_status("Попадание · %s · %s" % [ev.get("module", "?"), "pen" if ev.get("pen") else "spall"])
 		var hp := Vector3(float(ev.get("x", 0)), float(ev.get("y", 1)), float(ev.get("z", 0)))
 		fx.spawn_hit_sparks(hp)
+		fx.spawn_impact(hp, bool(ev.get("pen", false)))
 		fx.play_hit_stub()
 	elif t == "impact":
-		fx.spawn_hit_sparks(Vector3(float(ev.get("x", 0)), float(ev.get("y", 0.2)), float(ev.get("z", 0))))
+		fx.spawn_impact(Vector3(float(ev.get("x", 0)), float(ev.get("y", 0.2)), float(ev.get("z", 0))), false)
 	elif t == "kill":
-		hud.set_status("Уничтожен · %s" % ev.get("id", ""))
+		var kp := Vector3(float(ev.get("x", 0)), float(ev.get("y", 1)), float(ev.get("z", 0)))
+		fx.spawn_explosion(kp, true)
+		hud.set_status("УНИЧТОЖЕН · %s" % ev.get("id", ""))
 	elif t == "cookoff":
 		hud.set_status("COOK-OFF · %s" % ev.get("id", ""))
 	elif t == "fire_start":
@@ -115,6 +133,8 @@ func _on_match_end(winner: String) -> void:
 	var survived := local_u != null and local_u.alive
 	var victory := winner == "blue"
 	var duration := (Time.get_ticks_msec() - _match_start_msec) / 1000.0
+	var battle_kills := local_u.kills if local_u else 0
+	GameState.award_battle(victory, battle_kills)
 	ApiClient.report_match({
 		"userId": GameState.user_id,
 		"vehicleId": GameState.vehicle_id,
@@ -123,7 +143,9 @@ func _on_match_end(winner: String) -> void:
 		"victory": victory,
 		"survived": survived,
 		"duration": duration,
-		"kills": local_u.kills if local_u else 0,
+		"kills": battle_kills,
+		"credits": GameState.credits,
+		"achievements": GameState.achievements,
 		"mode": "local_laststand",
 	})
 
