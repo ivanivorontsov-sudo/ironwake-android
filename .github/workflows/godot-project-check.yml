@@ -35,7 +35,7 @@ jobs:
         run: |
           set -euxo pipefail
           mkdir -p "$GITHUB_WORKSPACE/godot-templates"
-          curl -fL --retry 5 --retry-all-errors -o /tmp/templates.tpz "https://github.com/godotengine/godot/releases/download/4.4-stable/Godot_v4.4-stable_export_templates.tpz"
+          curl -fL --retry 5 --retry-all-errors --connect-timeout 20 --max-time 180 -o /tmp/templates.tpz "https://github.com/godotengine/godot/releases/download/4.4-stable/Godot_v4.4-stable_export_templates.tpz"
           unzip -q /tmp/templates.tpz -d "$GITHUB_WORKSPACE/godot-templates"
           test -s "$GITHUB_WORKSPACE/godot-templates/templates/android_debug.apk"
 
