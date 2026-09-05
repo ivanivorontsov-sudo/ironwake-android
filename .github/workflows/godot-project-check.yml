@@ -1,0 +1,22 @@
+name: Godot project check
+on:
+  push:
+    paths:
+      - "godot/**"
+      - ".github/workflows/godot-project-check.yml"
+  pull_request:
+    paths:
+      - "godot/**"
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify Godot project layout
+        run: |
+          test -f godot/Ironwake/project.godot
+          test -f godot/Ironwake/scenes/hangar.tscn
+          test -f godot/Ironwake/scenes/battle.tscn
+          grep -q 'run/main_scene="res://scenes/hangar.tscn"' godot/Ironwake/project.godot
+          grep -q 'config/features=PackedStringArray("4.4"' godot/Ironwake/project.godot
+          echo "Godot Ironwake layout OK"

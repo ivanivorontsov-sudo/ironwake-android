@@ -44,3 +44,11 @@ unity/Ironwake/Recordings/
 *.fbx
 *.mb
 *.ma
+
+# Godot generated — never commit
+godot/Ironwake/.godot/
+godot/Ironwake/.import/
+godot/Ironwake/android/
+godot/build/
+*.apk
+*.aab

@@ -1,0 +1,151 @@
+[gd_scene load_steps=2 format=3 uid="uid://bhangar001iw"]
+
+[ext_resource type="Script" path="res://scripts/meta/hangar.gd" id="1_hangar"]
+
+[node name="Hangar" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_hangar")
+
+[node name="BG" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.08, 0.1, 0.08, 1)
+
+[node name="SubViewportContainer" type="SubViewportContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+stretch = true
+
+[node name="SubViewport" type="SubViewport" parent="SubViewportContainer"]
+handle_input_locally = false
+size = Vector2i(1280, 720)
+render_target_update_mode = 4
+
+[node name="PreviewRoot" type="Node3D" parent="SubViewportContainer/SubViewport"]
+unique_name_in_owner = true
+
+[node name="PreviewCamera" type="Camera3D" parent="SubViewportContainer/SubViewport"]
+unique_name_in_owner = true
+transform = Transform3D(0.8, -0.2, 0.56, 0, 0.94, 0.34, -0.6, -0.27, 0.75, 5.5, 3.2, 6.5)
+current = true
+fov = 55.0
+
+[node name="UI" type="CanvasLayer" parent="."]
+layer = 2
+
+[node name="Root" type="MarginContainer" parent="UI"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 20
+
+[node name="VBox" type="VBoxContainer" parent="UI/Root"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="TitleBox" type="PanelContainer" parent="UI/Root/VBox"]
+layout_mode = 2
+
+[node name="TitleV" type="VBoxContainer" parent="UI/Root/VBox/TitleBox"]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="UI/Root/VBox/TitleBox/TitleV"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+theme_override_colors/font_color = Color(0.92, 0.9, 0.75, 1)
+text = "IRONWAKE · АНГАР"
+
+[node name="StatusLabel" type="Label" parent="UI/Root/VBox/TitleBox/TitleV"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+theme_override_colors/font_color = Color(0.75, 0.8, 0.65, 1)
+text = "Ангар · загрузка…"
+
+[node name="WalletLabel" type="Label" parent="UI/Root/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+theme_override_colors/font_color = Color(0.85, 0.82, 0.7, 1)
+text = "Сталь 25000   ·   Разведка 150   ·   Награды 0"
+
+[node name="Spacer" type="Control" parent="UI/Root/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="VehicleRow" type="HBoxContainer" parent="UI/Root/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="BtnPrev" type="Button" parent="UI/Root/VBox/VehicleRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(72, 64)
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = "◀"
+
+[node name="VehicleBox" type="PanelContainer" parent="UI/Root/VBox/VehicleRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="VehicleLabel" type="Label" parent="UI/Root/VBox/VehicleRow/VehicleBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+theme_override_colors/font_color = Color(0.95, 0.93, 0.8, 1)
+horizontal_alignment = 1
+vertical_alignment = 1
+text = "Танк: K-72 Ural"
+
+[node name="BtnNext" type="Button" parent="UI/Root/VBox/VehicleRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(72, 64)
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = "▶"
+
+[node name="VehicleDesc" type="Label" parent="UI/Root/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 15
+theme_override_colors/font_color = Color(0.78, 0.8, 0.7, 1)
+autowrap_mode = 3
+text = "HP · скорость · орудие"
+
+[node name="BattleRow" type="HBoxContainer" parent="UI/Root/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="BtnLocal" type="Button" parent="UI/Root/VBox/BattleRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 72)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 22
+text = "ЛОКАЛЬНЫЙ БОЙ"
+
+[node name="BtnOnline" type="Button" parent="UI/Root/VBox/BattleRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 72)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 22
+text = "ОНЛАЙН"
