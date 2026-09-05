@@ -11,8 +11,9 @@ signal match_ended(winner: String)
 
 var arena_half: float = 110.0
 var match_time_limit: float = 360.0
-var blue_bots: int = 3
-var red_bots: int = 4
+var blue_bots: int = 0
+var red_bots: int = 1
+var bot_difficulty: float = 0.55
 
 var units: Dictionary = {}  # id -> SimUnit
 var shells: Array = []  # Dictionary shells
@@ -96,6 +97,23 @@ func find_nearest_enemy(self_id: String, team: String) -> String:
 			best = u.id
 	return best
 
+
+func set_bot_count(count: int) -> void:
+	blue_bots = 0
+	red_bots = clampi(count, 0, 1)
+	if _bots == null:
+		_bots = LocalBotAI.new(self)
+	# Remove only local AI units; never touch the human player.
+	var remove_ids: Array[String] = []
+	for id_any in units.keys():
+		var id := str(id_any)
+		if id.begins_with("bot_"):
+			remove_ids.append(id)
+	for id in remove_ids:
+		units.erase(id)
+	_bots.fill_room(blue_bots, red_bots)
+	_emit({"type": "bot_count", "count": red_bots})
+	_push_state()
 
 func set_local_input(frame: Dictionary) -> void:
 	var u: SimUnit = get_unit(local_player_id)
