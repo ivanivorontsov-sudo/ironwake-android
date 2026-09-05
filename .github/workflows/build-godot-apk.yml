@@ -31,7 +31,6 @@ jobs:
           set -euxo pipefail
           sudo apt-get update
           sudo apt-get install -y openjdk-17-jdk unzip rsync
-          export PATH="$JAVA_HOME/bin:$PATH"
           java -version
 
       - name: Download official Godot 4.4 Linux binary
@@ -83,12 +82,16 @@ export/android/android_sdk_path = "$ANDROID_SDK_ROOT"
 export/android/java_sdk_path = "$JAVA_HOME"
 EOF
 
-      - name: Install official Godot Android build template
+      - name: Install exact official Android build template
         run: |
           set -euxo pipefail
-          mkdir -p "$PROJECT_DIR/android"
-          if [ ! -f "$PROJECT_DIR/android/build.gradle" ]; then
-            unzip -q "$TEMPLATES_DIR/templates/android_source.zip" -d "$PROJECT_DIR/android"
+          rm -rf "$PROJECT_DIR/android" "$RUNNER_TEMP/godot-android-source"
+          mkdir -p "$RUNNER_TEMP/godot-android-source" "$PROJECT_DIR/android"
+          unzip -q "$TEMPLATES_DIR/templates/android_source.zip" -d "$RUNNER_TEMP/godot-android-source"
+          if [ -d "$RUNNER_TEMP/godot-android-source/android" ]; then
+            rsync -a "$RUNNER_TEMP/godot-android-source/android/" "$PROJECT_DIR/android/"
+          else
+            rsync -a "$RUNNER_TEMP/godot-android-source/" "$PROJECT_DIR/android/"
           fi
           test -f "$PROJECT_DIR/android/build.gradle"
           test -f "$PROJECT_DIR/android/settings.gradle"
@@ -100,7 +103,6 @@ EOF
           mkdir -p "$DEST"
           rsync -a "$TEMPLATES_DIR/templates/" "$DEST/"
           test -s "$DEST/android_debug.apk"
-          test -s "$DEST/android_source.zip"
 
       - name: Import and validate project
         run: |
