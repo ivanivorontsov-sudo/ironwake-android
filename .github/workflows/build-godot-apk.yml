@@ -121,3 +121,4 @@ EOF
           retention-days: 14
 
 # Build trigger: verify current branch head only.
+# Fresh retry trigger: 2026-09-05.
