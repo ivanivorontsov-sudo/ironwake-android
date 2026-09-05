@@ -70,6 +70,10 @@ func _process(_delta: float) -> void:
 	})
 
 
+func release_aim_input() -> void:
+	_aim_dragging = false
+	_last_aim_pos = Vector2.ZERO
+
 func handle_aim_input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch:
 		var st := event as InputEventScreenTouch
