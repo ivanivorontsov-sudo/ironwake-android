@@ -1,11 +1,13 @@
-# IRONWAKE — дизайн клиента (Unity URP)
+# IRONWAKE — дизайн клиента (Godot 4 primary)
 
 ## Цель
 
-Нативный Unity URP клиент с «тяжёлой» техникой: инерция, модульные попадания,
+Нативный клиент с «тяжёлой» техникой: инерция, модульные попадания,
 last-stand **без респавна**, spectator, читаемая военная графика.
-Ощущения в духе Massive Warfare / Battle of Tanks / War Thunder mobile —
-**не** клон ассетов.
+Ощущения в духе Massive Warfare / Battle of Tanks / War Thunder mobile.
+
+**Primary engine: Godot 4.4** (`godot/Ironwake/`).  
+Unity URP (`unity/Ironwake/`) оставлен как legacy reference.
 
 ## Архитектурный сдвиг (device-authoritative)
 
@@ -14,83 +16,53 @@ last-stand **без респавна**, spectator, читаемая военна
 | **Бой / графика** | **На телефоне** | Движение, баллистика, модули, боты, камера, VFX, окружение |
 | **Мета** | Сервер `http://biker9td.beget.tech` | Аккаунты, гараж, валюты, достижения, отчёт матча |
 
-Сервер **не** является визуальным / combat-движком. Старый online hangar +
-HTTP poll комнат остаётся опциональным (`Online`); по умолчанию бой =
-**LocalBattle** (`LocalBattleSim` @ 20 Hz + боты), работает офлайн / demo.
-
 ```
-HangarUI ──► Local Battle (primary) ──► LocalBattleSim + Graphics builders
-         └─► Online (optional)      ──► IronwakeClient room join/poll
+Hangar ──► Local Battle (primary) ──► LocalBattleSim + TankVisual / Environment
+       └─► Online (optional)      ──► ApiClient join (timeout 10s → local)
 ```
 
-После локального матча клиент best-effort шлёт `POST /match` (если известен
-`userId`) для наград. Боевой симулятор при этом не ждёт сервер.
+После локального матча клиент best-effort шлёт `POST /match`.
 
-## Мета-API (сервер)
+## Мета-API
 
 | Метод | Назначение |
 |-------|------------|
-| `POST /auth/google` | Google auth (placeholder на клиенте) |
-| `GET /user?userId=` | Кошелёк / профиль |
-| `GET /catalog/vehicles` | Гараж / магазин |
-| `GET /achievements` | Достижения |
-| `POST /match` | Отчёт результата локального/онлайн боя |
+| `GET /health` | Пинг |
+| `GET /catalog/vehicles` | Гараж |
+| `POST /room/join` | Онлайн-вход (таймаут → local) |
+| `POST /match` | Отчёт результата |
 
-Опциональный online room (legacy): `POST /room/join`, `POST /room/input`,
-`GET /room/state` @ 10–20 Hz. WS на Beget заблокирован nginx.
+## Локальный симулятор (GDScript)
 
-## Локальный симулятор
+- **`LocalBattleSim`** — 20 Hz: игроки + боты, снаряды + гравитация, модули,
+  fire DoT, cook-off, **без респавна**, spectator, конец матча.
+- **`LocalBotAI`** — chase / circle / fire.
+- **`ModuleSystem`** — pen/facing → mobility/fire. Ключи: `hull_f/s/r`,
+  `turret`, `gun`, `engine`, `ammo`, `track_l/r`, `fuel`, `optics`.
 
-- **`Sim/LocalBattleSim`** — тик 20 Hz: игроки + боты, throttle/steer,
-  снаряды + гравитация, карта модулей, fire DoT, cook-off, **без респавна**,
-  spectator, конец матча.
-- **`Sim/LocalBotAI`** — заполняет комнату ботами (chase / circle / fire).
-- **`Sim/ModuleSystem`** — упрощённый pen/facing → эффекты на mobility/fire.
-- Модули: `hull_f/s/r`, `turret`, `gun`, `engine`, `ammo`, `track_l/r`,
-  `fuel`, `optics` ∈ [0,1].
+## Графика
 
-`VehicleController` в LocalSim-режиме получает позу из снимков сима;
-ввод (в т.ч. мобильный) уходит в `LocalBattleSim.SetLocalInput`.
-
-## Графика (URP, procedural vertical slice)
-
-- **`Graphics/BattleEnvironmentBuilder`** — земля с grid/dirt, холмы
-  (displaced mesh) + berms, мешки/руины из примитивов, sun + ambient, fog,
-  sky clear-color gradient.
-- **`Graphics/UrpVisualTuner`** — Volume bloom/vignette/color adjust если URP
-  Volume доступен; иначе QualitySettings + camera HDR (см. README).
-- **`Graphics/TankVisualBuilder`** — танк/БТР/авто/вертолёт/самолёт из
-  нескольких примитивов, тёмные military цвета, декали, exhaust smoke.
-- **`Graphics/CombatVfx`** — вспышка, трассер, искры, огонь, cook-off, пыль.
-- **`Assets/Shaders/IW_SimpleLitTriplanar.shader`** — mobile-friendly dirt/metal.
-
-**Честно:** AAA scanned tanks требуют art pipeline. Этот PR даёт системы +
-сильный procedural vertical slice; ниже — рекомендованные free Asset Store
-паки для замены.
-
-## Ввод
-
-`Input/MobileBattleInput` — виртуальный джойстик, кнопка огня, aim-drag;
-клавиатура/мышь в Editor (WASD, мышь, Space, V).
+- **`BattleEnvironment`** — dirt ground (Poly Haven CC0), холмы, berms,
+  ruins, ProceduralSky, sun + fill, fog, ACES.
+- **`TankVisual`** — танк/БТР/авто/heli из мешей + **StandardMaterial3D**
+  olive paints (не unassigned/magenta).
+- Mobile renderer (`rendering_method=mobile`) + MSAA.
 
 ## Сцены
 
 | Сцена | Роль |
 |-------|------|
-| **Hangar** | Кошелёк, каталог, **Локальный бой** + Онлайн |
-| **Battle** | Runtime environment + LocalSim (default) или online remotes |
-
-Пустые YAML-сцены играют за счёт bootstrap (среда и техника создаются в Play).
+| **hangar.tscn** | Кошелёк stub, каталог, Local + Online |
+| **battle.tscn** | Environment + LocalSim + HUD (stick / fire / camera / hangar) |
 
 ## Roadmap
 
-1. Авторские меши / VFX вместо procedurals (Asset Store / собственный пайплайн)
-2. Опциональный multiplayer sync через IronwakeClient (уже есть каркас)
-3. Google Sign-In plugin + SHA-1
-4. GameCI Unity APK при появлении license
+1. Богатые меши / VFX вместо procedurals  
+2. Полноценный online room sync (каркас join уже есть)  
+3. Godot Android CI при наличии SDK + export templates на runner  
+4. Unity legacy можно удалить после стабилизации Godot APK  
 
 ## Ограничения
 
-- Нет `Library/` / огромных бинарников в git
-- Нет Unity Editor на cloud/box — валидный C# + scene YAML + shader
-- Procedural ≠ AAA; цель — читаемый военный vertical slice на устройстве
+- Нет `.godot/` / огромных бинарников в git (кроме CC0 1K textures)  
+- Procedural ≠ AAA; цель — читаемый военный vertical slice на устройстве  
