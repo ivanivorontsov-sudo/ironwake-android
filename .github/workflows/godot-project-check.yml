@@ -45,7 +45,9 @@ jobs:
           curl -fL --retry 5 --retry-all-errors -o /tmp/cmdline.zip "https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip"
           unzip -q /tmp/cmdline.zip -d "$GITHUB_WORKSPACE/android-sdk/cmdline-tools"
           mv "$GITHUB_WORKSPACE/android-sdk/cmdline-tools/cmdline-tools" "$GITHUB_WORKSPACE/android-sdk/cmdline-tools/latest"
+          export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
           export PATH="$GITHUB_WORKSPACE/android-sdk/cmdline-tools/latest/bin:$GITHUB_WORKSPACE/android-sdk/platform-tools:$JAVA_HOME/bin:$PATH"
+          java -version
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
 
