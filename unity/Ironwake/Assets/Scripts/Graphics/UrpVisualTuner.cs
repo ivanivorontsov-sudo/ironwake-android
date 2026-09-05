@@ -26,7 +26,7 @@ namespace Ironwake.Graphics
             {
                 cam.allowHDR = preferHdr;
                 cam.allowMSAA = true;
-                cam.backgroundColor = new Color(0.5f, 0.6f, 0.7f);
+                cam.backgroundColor = new Color(0.45f, 0.58f, 0.75f);
                 cam.clearFlags = CameraClearFlags.SolidColor;
                 if (cam.farClipPlane < 400f) cam.farClipPlane = 450f;
             }

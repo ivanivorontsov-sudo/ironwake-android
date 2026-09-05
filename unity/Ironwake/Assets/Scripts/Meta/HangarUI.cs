@@ -9,8 +9,8 @@ using Ironwake.Combat;
 namespace Ironwake.Meta
 {
     /// <summary>
-    /// Hangar: Сталь / Разведка / Награды (commendations), vehicle list from
-    /// GET /catalog/vehicles, select vehicle, Start Battle → Battle scene.
+    /// Hangar main screen via OnGUI only (reliable on Android Built-in RP).
+    /// No overlapping uGUI battle buttons.
     /// </summary>
     public sealed class HangarUI : MonoBehaviour
     {
@@ -18,7 +18,7 @@ namespace Ironwake.Meta
         [SerializeField] string battleSceneName = "Battle";
         [SerializeField] string callsign = "OPERATOR";
 
-        [Header("Optional wired UI")]
+        [Header("Optional wired UI (unused for hangar main — OnGUI only)")]
         [SerializeField] Text steelText;
         [SerializeField] Text intelText;
         [SerializeField] Text rewardsText;
@@ -34,25 +34,67 @@ namespace Ironwake.Meta
         int _intel = 150;
         int _commendations;
         VehicleDef _selected;
-        bool _builtRuntimeUi;
+        int _vehicleIndex;
+        string _statusLine = "Ангар · загрузка…";
+        bool _onlineBusy;
+        GameObject _runtimeCanvas;
+
+        static HangarUI _instance;
+
+        void Awake()
+        {
+            if (_instance != null && _instance != this)
+            {
+                Debug.LogWarning("[IRONWAKE] Duplicate HangarUI destroyed");
+                Destroy(gameObject);
+                return;
+            }
+            _instance = this;
+        }
+
+        void OnDestroy()
+        {
+            if (_instance == this) _instance = null;
+        }
 
         void Start()
         {
+            if (_instance != this) return;
+
+            // Hide any leftover uGUI hangar chrome so OnGUI is the only main screen.
+            HideOrDestroyRuntimeCanvas();
+
             if (catalog == null) catalog = VehicleCatalog.CreateDefaultRuntime();
-            if (catalog.vehicles.Count > 0) _selected = catalog.vehicles[0];
+            if (catalog.vehicles != null && catalog.vehicles.Count > 0)
+            {
+                string pref = PlayerPrefs.GetString("iw.vehicle", "");
+                _selected = catalog.Get(pref) ?? catalog.vehicles[0];
+                _vehicleIndex = Mathf.Max(0, catalog.vehicles.IndexOf(_selected));
+            }
 
             EnsureClient();
-            if (steelText == null) BuildRuntimeCanvas();
-            RefreshWallet();
             RefreshVehicle();
-            PopulateList();
-
-            // Runtime-built buttons already have listeners; only wire inspector-assigned ones once.
-            if (battleButton && !_builtRuntimeUi) battleButton.onClick.AddListener(OnLocalBattle);
-            if (shopButton && !_builtRuntimeUi) shopButton.onClick.AddListener(OnShop);
-            if (achievementsButton && !_builtRuntimeUi) achievementsButton.onClick.AddListener(OnAchievements);
-
             StartCoroutine(BootSequence());
+        }
+
+        void HideOrDestroyRuntimeCanvas()
+        {
+            // Do not build uGUI hangar buttons — OnGUI owns the main screen.
+            if (_runtimeCanvas != null)
+            {
+                _runtimeCanvas.SetActive(false);
+                Destroy(_runtimeCanvas);
+                _runtimeCanvas = null;
+            }
+            foreach (var c in Object.FindObjectsOfType<Canvas>())
+            {
+                if (c != null && c.name == "HangarCanvas")
+                    Destroy(c.gameObject);
+            }
+            // Clear any inspector-wired hangar buttons so they cannot fire / draw.
+            if (battleButton) battleButton.gameObject.SetActive(false);
+            if (shopButton) shopButton.gameObject.SetActive(false);
+            if (achievementsButton) achievementsButton.gameObject.SetActive(false);
         }
 
         void EnsureClient()
@@ -62,22 +104,85 @@ namespace Ironwake.Meta
             go.AddComponent<IronwakeClient>();
         }
 
-        string _statusLine = "Ангар · загрузка…";
-
         void OnGUI()
         {
-            // Primary controls — reliable on Android even when uGUI shaders are magenta
-            float pad = 16f * Mathf.Max(1f, Screen.dpi / 160f);
-            float bh = Mathf.Max(64f, Screen.height * 0.09f);
+            if (_instance != this) return;
+
+            float dpi = Mathf.Max(1f, Screen.dpi / 160f);
+            float pad = 16f * dpi;
+            float bh = Mathf.Max(56f, Screen.height * 0.085f);
+            float fontTitle = Mathf.RoundToInt(22 * dpi);
+            float fontBtn = Mathf.RoundToInt(20 * dpi);
+            float fontBody = Mathf.RoundToInt(16 * dpi);
+
+            var box = new GUIStyle(GUI.skin.box)
+            {
+                fontSize = (int)fontTitle,
+                alignment = TextAnchor.MiddleLeft,
+                wordWrap = true
+            };
+            var body = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = (int)fontBody,
+                alignment = TextAnchor.MiddleLeft,
+                wordWrap = true
+            };
+            body.normal.textColor = new Color(0.92f, 0.9f, 0.82f);
+            var btn = new GUIStyle(GUI.skin.button)
+            {
+                fontSize = (int)fontBtn,
+                fontStyle = FontStyle.Bold
+            };
+            var smallBtn = new GUIStyle(GUI.skin.button) { fontSize = (int)fontBody };
+
+            // Title + status
+            float topH = bh * 1.35f;
+            GUI.Box(new Rect(pad, pad, Screen.width - pad * 2f, topH),
+                "  IRONWAKE · АНГАР\n  " + _statusLine, box);
+
+            // Wallet
+            float y = pad + topH + pad * 0.5f;
+            string wallet = $"Сталь {_steel}   ·   Разведка {_intel}   ·   Награды {_commendations}";
+            GUI.Label(new Rect(pad, y, Screen.width - pad * 2f, bh * 0.55f), wallet, body);
+            y += bh * 0.6f;
+
+            // Vehicle prev / name / next
+            float navW = Mathf.Max(72f, Screen.width * 0.12f);
+            float midW = Screen.width - pad * 2f - navW * 2f - pad * 2f;
+            if (GUI.Button(new Rect(pad, y, navW, bh), "◀", smallBtn))
+                CycleVehicle(-1);
+            string vName = _selected != null
+                ? $"{_selected.classLabel}: {_selected.displayName}"
+                : "Нет техники";
+            GUI.Box(new Rect(pad + navW + pad, y, midW, bh), "  " + vName, box);
+            if (GUI.Button(new Rect(pad + navW + pad + midW + pad, y, navW, bh), "▶", smallBtn))
+                CycleVehicle(1);
+            y += bh + pad * 0.4f;
+
+            if (_selected != null)
+            {
+                GUI.Label(new Rect(pad, y, Screen.width - pad * 2f, bh * 0.7f),
+                    _selected.description ?? "", body);
+            }
+
+            // Bottom: ONE local + ONE online — no uGUI duplicates
             float bw = (Screen.width - pad * 3f) * 0.5f;
-            var title = new GUIStyle(GUI.skin.box) { fontSize = Mathf.RoundToInt(22 * Screen.dpi / 160f), alignment = TextAnchor.MiddleLeft };
-            var btn = new GUIStyle(GUI.skin.button) { fontSize = Mathf.RoundToInt(20 * Screen.dpi / 160f), fontStyle = FontStyle.Bold };
-            GUI.Box(new Rect(pad, pad, Screen.width - pad * 2f, bh), "  IRONWAKE · АНГАР\n  " + _statusLine, title);
-            float y = Screen.height - bh - pad;
-            if (GUI.Button(new Rect(pad, y, bw, bh), "ЛОКАЛЬНЫЙ БОЙ", btn))
+            float by = Screen.height - bh - pad;
+            GUI.enabled = !_onlineBusy;
+            if (GUI.Button(new Rect(pad, by, bw, bh), "ЛОКАЛЬНЫЙ БОЙ", btn))
                 OnLocalBattle();
-            if (GUI.Button(new Rect(pad * 2f + bw, y, bw, bh), "ОНЛАЙН / СЕРВЕР", btn))
+            string onlineLabel = _onlineBusy ? "ОНЛАЙН…" : "ОНЛАЙН";
+            if (GUI.Button(new Rect(pad * 2f + bw, by, bw, bh), onlineLabel, btn))
                 OnOnlineBattle();
+            GUI.enabled = true;
+        }
+
+        void CycleVehicle(int delta)
+        {
+            if (catalog == null || catalog.vehicles == null || catalog.vehicles.Count == 0) return;
+            _vehicleIndex = (_vehicleIndex + delta + catalog.vehicles.Count) % catalog.vehicles.Count;
+            _selected = catalog.vehicles[_vehicleIndex];
+            RefreshVehicle();
         }
 
         IEnumerator BootSequence()
@@ -92,11 +197,10 @@ namespace Ironwake.Meta
             {
                 string pref = PlayerPrefs.GetString("iw.vehicle", "");
                 _selected = catalog.Get(pref) ?? catalog.vehicles[0];
+                _vehicleIndex = Mathf.Max(0, catalog.vehicles.IndexOf(_selected));
             }
-            PopulateList();
             RefreshVehicle();
 
-            // Guest wallet defaults; pull /user when profile exists
             UserProfile profile = null;
             yield return IronwakeClient.Instance.FetchUser(IronwakeClient.Instance.UserId, u => profile = u);
             if (profile != null)
@@ -105,150 +209,11 @@ namespace Ironwake.Meta
                 _intel = profile.Intel;
                 _commendations = profile.Commendations;
                 if (!string.IsNullOrEmpty(profile.Callsign)) callsign = profile.Callsign;
-                RefreshWallet();
             }
 
             SetStatus(ok == true
                 ? (catOk ? "Ангар · мета с сервера · бой LocalSim на устройстве" : "Ангар · сервер жив · локальный каталог")
                 : "Ангар · офлайн · Local Battle доступен");
-        }
-
-        void BuildRuntimeCanvas()
-        {
-            if (_builtRuntimeUi) return;
-            _builtRuntimeUi = true;
-            var canvasGo = new GameObject("HangarCanvas");
-            var canvas = canvasGo.AddComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvasGo.AddComponent<CanvasScaler>().uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            canvasGo.AddComponent<GraphicRaycaster>();
-            if (Object.FindObjectOfType<UnityEngine.EventSystems.EventSystem>() == null)
-            {
-                var es = new GameObject("EventSystem");
-                es.AddComponent<UnityEngine.EventSystems.EventSystem>();
-                es.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
-            }
-
-            statusText = MakeText(canvasGo.transform, "Status", new Vector2(20, -20), 18, TextAnchor.UpperLeft);
-            statusText.rectTransform.sizeDelta = new Vector2(900, 32);
-            SetStatus("Ангар · подключение…");
-
-            steelText = MakeText(canvasGo.transform, "Steel", new Vector2(-300, -20), 16, TextAnchor.UpperRight);
-            intelText = MakeText(canvasGo.transform, "Intel", new Vector2(-160, -20), 16, TextAnchor.UpperRight);
-            rewardsText = MakeText(canvasGo.transform, "Rewards", new Vector2(-20, -20), 16, TextAnchor.UpperRight);
-
-            vehicleTitle = MakeText(canvasGo.transform, "VTitle", new Vector2(20, -80), 28, TextAnchor.UpperLeft);
-            vehicleTitle.rectTransform.sizeDelta = new Vector2(600, 40);
-            vehicleDesc = MakeText(canvasGo.transform, "VDesc", new Vector2(20, -130), 16, TextAnchor.UpperLeft);
-            vehicleDesc.rectTransform.sizeDelta = new Vector2(700, 80);
-            vehicleDesc.color = new Color(0.7f, 0.7f, 0.65f);
-
-            var listGo = new GameObject("VehicleList");
-            listGo.transform.SetParent(canvasGo.transform, false);
-            var listRt = listGo.AddComponent<RectTransform>();
-            listRt.anchorMin = new Vector2(0, 0.2f);
-            listRt.anchorMax = new Vector2(0.48f, 0.72f);
-            listRt.offsetMin = new Vector2(20, 0);
-            listRt.offsetMax = new Vector2(-10, 0);
-            vehicleListRoot = listGo.transform;
-
-            // Primary: Local Battle (device engine). Secondary: Online room.
-            battleButton = MakeButton(canvasGo.transform, "ЛОКАЛЬНЫЙ БОЙ", new Vector2(0.38f, 0.09f), OnLocalBattle);
-            var onlineBtn = MakeButton(canvasGo.transform, "ОНЛАЙН", new Vector2(0.62f, 0.09f), OnOnlineBattle);
-            onlineBtn.GetComponent<Image>().color = new Color(0.35f, 0.4f, 0.45f);
-            shopButton = MakeButton(canvasGo.transform, "МАГАЗИН", new Vector2(0.15f, 0.09f), OnShop);
-            achievementsButton = MakeButton(canvasGo.transform, "ДОСТИЖЕНИЯ", new Vector2(0.85f, 0.09f), OnAchievements);
-
-            // Title banner
-            var title = MakeText(canvasGo.transform, "Title", new Vector2(20, -48), 22, TextAnchor.UpperLeft);
-            title.text = "IRONWAKE · ДВИЖОК НА УСТРОЙСТВЕ";
-            title.color = new Color(0.85f, 0.78f, 0.45f);
-            if (battleButton) battleButton.GetComponent<RectTransform>().sizeDelta = new Vector2(200, 52);
-        }
-
-        static Text MakeText(Transform parent, string name, Vector2 anchored, int size, TextAnchor align)
-        {
-            var go = new GameObject(name);
-            go.transform.SetParent(parent, false);
-            var t = go.AddComponent<Text>();
-            t.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (t.font == null) t.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
-            if (t.font == null) t.font = Font.CreateDynamicFontFromOSFont(new[] { "sans-serif", "Roboto", "Arial" }, 16);
-            if (t.font == null) t.font = Font.CreateDynamicFontFromOSFont("sans-serif", 16);
-            t.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
-            t.fontSize = size;
-            t.color = new Color(0.9f, 0.88f, 0.82f);
-            t.alignment = align;
-            var rt = t.rectTransform;
-            rt.anchorMin = rt.anchorMax = align == TextAnchor.UpperRight ? new Vector2(1, 1) : new Vector2(0, 1);
-            rt.pivot = align == TextAnchor.UpperRight ? new Vector2(1, 1) : new Vector2(0, 1);
-            rt.anchoredPosition = anchored;
-            rt.sizeDelta = new Vector2(140, 28);
-            return t;
-        }
-
-        static Button MakeButton(Transform parent, string label, Vector2 anchor, UnityEngine.Events.UnityAction onClick)
-        {
-            var go = new GameObject("Btn_" + label);
-            go.transform.SetParent(parent, false);
-            var img = go.AddComponent<Image>();
-            img.color = new Color(0.76f, 0.71f, 0.54f);
-            var btn = go.AddComponent<Button>();
-            btn.targetGraphic = img;
-            btn.onClick.AddListener(onClick);
-            var rt = go.GetComponent<RectTransform>();
-            rt.anchorMin = rt.anchorMax = anchor;
-            rt.sizeDelta = new Vector2(160, 48);
-            rt.anchoredPosition = Vector2.zero;
-            var tx = MakeText(go.transform, "Label", Vector2.zero, 18, TextAnchor.MiddleCenter);
-            tx.text = label;
-            tx.color = new Color(0.1f, 0.09f, 0.06f);
-            tx.alignment = TextAnchor.MiddleCenter;
-            tx.rectTransform.anchorMin = Vector2.zero;
-            tx.rectTransform.anchorMax = Vector2.one;
-            tx.rectTransform.offsetMin = tx.rectTransform.offsetMax = Vector2.zero;
-            return btn;
-        }
-
-        void PopulateList()
-        {
-            if (vehicleListRoot == null || catalog == null) return;
-            for (int i = vehicleListRoot.childCount - 1; i >= 0; i--)
-                Destroy(vehicleListRoot.GetChild(i).gameObject);
-            int idx = 0;
-            foreach (var v in catalog.vehicles)
-            {
-                var captured = v;
-                int row = idx;
-                var btn = MakeButton(vehicleListRoot, v.displayName, new Vector2(0.5f, 0.5f), () =>
-                {
-                    _selected = captured;
-                    RefreshVehicle();
-                });
-                var rt = btn.GetComponent<RectTransform>();
-                rt.anchorMin = new Vector2(0, 1);
-                rt.anchorMax = new Vector2(1, 1);
-                rt.pivot = new Vector2(0.5f, 1);
-                rt.sizeDelta = new Vector2(0, 36);
-                rt.anchoredPosition = new Vector2(0, -40f * row);
-                btn.GetComponent<Image>().color = new Color(0.15f, 0.16f, 0.13f);
-                var label = btn.GetComponentInChildren<Text>();
-                if (label)
-                {
-                    label.color = new Color(0.9f, 0.88f, 0.82f);
-                    label.fontSize = 14;
-                    string cost = v.starter ? "старт" : $"{v.costSteel}⚙/{v.costIntel}🔍";
-                    label.text = $"{v.classLabel}: {v.displayName}  [{cost}]";
-                }
-                idx++;
-            }
-        }
-
-        void RefreshWallet()
-        {
-            if (steelText) steelText.text = $"Сталь {_steel}";
-            if (intelText) intelText.text = $"Разведка {_intel}";
-            if (rewardsText) rewardsText.text = $"Награды {_commendations}";
         }
 
         void RefreshVehicle()
@@ -266,19 +231,21 @@ namespace Ironwake.Meta
             if (statusText) statusText.text = s;
         }
 
-        void OnBattle() => OnLocalBattle();
-
         void EnsureSelected()
         {
             if (catalog == null) catalog = VehicleCatalog.CreateDefaultRuntime();
             if (catalog.vehicles == null || catalog.vehicles.Count == 0)
                 catalog.vehicles = VehicleCatalog.BuildFallbackList();
             if (_selected == null)
+            {
                 _selected = catalog.vehicles[0];
+                _vehicleIndex = 0;
+            }
         }
 
         void OnLocalBattle()
         {
+            if (_onlineBusy) return;
             EnsureSelected();
             PlayerPrefs.SetString("iw.battleMode", "local");
             PlayerPrefs.SetString("iw.vehicle", _selected.id);
@@ -293,16 +260,43 @@ namespace Ironwake.Meta
 
         void OnOnlineBattle()
         {
+            if (_onlineBusy) return;
             EnsureSelected();
             StartCoroutine(JoinAndLoadOnline());
         }
 
         IEnumerator JoinAndLoadOnline()
         {
+            _onlineBusy = true;
             PlayerPrefs.SetString("iw.battleMode", "online");
-            SetStatus("Онлайн · вход в комнату…");
+            SetStatus("Онлайн · вход в комнату… (таймаут 10с)");
+
+            bool finished = false;
             bool ok = false;
-            yield return IronwakeClient.Instance.Join(callsign, _selected.id, "laststand", s => ok = s);
+            StartCoroutine(RunJoin(success =>
+            {
+                ok = success;
+                finished = true;
+            }));
+
+            float deadline = Time.realtimeSinceStartup + 10f;
+            while (!finished && Time.realtimeSinceStartup < deadline)
+                yield return null;
+
+            if (!finished)
+            {
+                SetStatus("Онлайн таймаут 10с — запускаю локальный бой");
+                PlayerPrefs.SetString("iw.battleMode", "local");
+                PlayerPrefs.SetString("iw.vehicle", _selected.id);
+                PlayerPrefs.SetString("iw.callsign", callsign);
+                if (IronwakeClient.Instance != null)
+                    PlayerPrefs.SetString("iw.userId", IronwakeClient.Instance.UserId);
+                PlayerPrefs.Save();
+                _onlineBusy = false;
+                BootBattleHere();
+                yield break;
+            }
+
             SetStatus(ok ? IronwakeClient.Instance.LastStatus : "Онлайн недоступен — запускаю локальный бой");
             if (!ok) PlayerPrefs.SetString("iw.battleMode", "local");
             PlayerPrefs.SetString("iw.vehicle", _selected.id);
@@ -310,15 +304,22 @@ namespace Ironwake.Meta
             if (IronwakeClient.Instance != null)
                 PlayerPrefs.SetString("iw.userId", IronwakeClient.Instance.UserId);
             PlayerPrefs.Save();
-            if (PlayerPrefs.GetString("iw.battleMode", "local") == "online" && Application.CanStreamedLevelBeLoaded(battleSceneName))
+            _onlineBusy = false;
+
+            if (PlayerPrefs.GetString("iw.battleMode", "local") == "online" &&
+                Application.CanStreamedLevelBeLoaded(battleSceneName))
                 LoadBattle();
             else
                 BootBattleHere();
         }
 
+        IEnumerator RunJoin(System.Action<bool> done)
+        {
+            yield return IronwakeClient.Instance.Join(callsign, _selected.id, "laststand", done);
+        }
+
         void LoadBattle()
         {
-            // Prefer in-place boot: stub Battle.unity + fake GUIDs are unreliable on device.
             try
             {
                 if (!string.IsNullOrEmpty(battleSceneName) && Application.CanStreamedLevelBeLoaded(battleSceneName))
@@ -345,38 +346,19 @@ namespace Ironwake.Meta
         {
             Debug.Log("[IRONWAKE] BootBattleHere (in-place LocalSim)");
             foreach (var c in Object.FindObjectsOfType<Canvas>())
-                Destroy(c.gameObject);
-            // Keep this HangarUI alive until BattleBootstrap.Start runs — then remove hangar chrome.
+            {
+                if (c != null && c.name == "HangarCanvas")
+                    Destroy(c.gameObject);
+            }
             if (Object.FindObjectOfType<BattleBootstrap>() == null)
                 new GameObject("BattleBootstrap").AddComponent<BattleBootstrap>();
-            // Remove hangar UI host next frame so bootstrap can Start
             StartCoroutine(RemoveHangarNextFrame());
         }
 
-        System.Collections.IEnumerator RemoveHangarNextFrame()
+        IEnumerator RemoveHangarNextFrame()
         {
             yield return null;
             Destroy(gameObject);
-        }
-
-        void OnShop()
-        {
-            if (_selected == null) return;
-            if (_selected.starter) { SetStatus("Стартовая техника уже доступна"); return; }
-            if (_steel < _selected.costSteel || _intel < _selected.costIntel)
-            {
-                SetStatus($"Нужно {_selected.costSteel} Стали и {_selected.costIntel} Разведки");
-                return;
-            }
-            _steel -= _selected.costSteel;
-            _intel -= _selected.costIntel;
-            RefreshWallet();
-            SetStatus($"Куплено: {_selected.displayName}");
-        }
-
-        void OnAchievements()
-        {
-            SetStatus("Достижения: Первая кровь · Хет-трик · Железная стена · Охотник за модулями (с /achievements)");
         }
     }
 
