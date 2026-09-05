@@ -82,3 +82,5 @@ permissions/access_network_state=true
 ; runner validation trigger
 
 ; CI APK export trigger
+
+; CI retry after JDK 17 fix
