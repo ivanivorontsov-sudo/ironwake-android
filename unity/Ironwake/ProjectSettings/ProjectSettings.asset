@@ -10,7 +10,7 @@ PlayerSettings:
   overrideDefaultApplicationIdentifier: 1
   applicationIdentifier:
     Android: com.ironwake.combat
-  AndroidBundleVersionCode: 3
+  AndroidBundleVersionCode: 4
   AndroidMinSdkVersion: 26
   AndroidTargetSdkVersion: 34
   AndroidPreferredInstallLocation: 1
@@ -34,6 +34,7 @@ PlayerSettings:
   muteOtherAudioSources: 0
   stripEngineCode: 1
   activeInputHandler: 0
+  insecureHttpOption: 2
   m_BuildTargetGraphicsAPIs:
   - m_BuildTarget: AndroidPlayer
     m_APIs: 0b000000
