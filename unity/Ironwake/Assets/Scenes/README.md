@@ -1,18 +1,11 @@
 # Scenes
 
-Placeholders. Open in **Unity Hub** (Unity 6) — Editor regenerates `Library/`.
+Placeholders + **AppBootstrap** (`Scripts/Bootstrap/AppBootstrap.cs`) which auto-attaches
+`HangarUI` / `BattleBootstrap` and creates Main Camera + light after scene load.
 
-| Scene | Purpose | Bootstrap |
-|-------|---------|-----------|
-| `Hangar.unity` | Wallet, catalog, **Локальный бой** + Онлайн | `Meta/HangarUI` |
-| `Battle.unity` | LocalSim (default) or online poll | `Combat/BattleBootstrap` |
+| Scene | Purpose |
+|-------|---------|
+| `Hangar.unity` | Wallet, catalog, Локальный бой |
+| `Battle.unity` | LocalSim / online |
 
-Both listed in `EditorBuildSettings.asset` (Hangar = 0).
-
-## Wire-up
-
-1. Hangar: empty GO + `HangarUI` (builds military canvas at runtime).
-2. Battle: empty GO + `BattleBootstrap` — builds environment, tanks, VFX, LocalSim.
-3. Play Hangar → **ЛОКАЛЬНЫЙ БОЙ**. Camera **V**. Death → spectator (no respawn).
-
-`PlayerPrefs iw.battleMode`: `local` (default) | `online`.
+Hangar is build index 0. Android APK must not be a black screen even with empty YAML.
