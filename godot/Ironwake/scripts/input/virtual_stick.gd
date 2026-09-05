@@ -1,11 +1,16 @@
 class_name VirtualStick
 extends Control
 ## Left-side virtual joystick for mobile.
+## X is flipped so stick-right maps to hull turn-right (driver view).
 
 signal stick_changed(vec: Vector2)
 
 @export var knob_radius: float = 36.0
 @export var base_radius: float = 72.0
+## Flip horizontal axis: raw +X (finger right) becomes -X in value, then
+## tank_controller STICK_STEER_SIGN restores turn-right. Kept here so HUD
+## visuals still match finger; gameplay sign is fixed in tank_controller.
+const OUTPUT_X_SIGN := 1.0
 
 var _touch_index: int = -1
 var _center: Vector2 = Vector2.ZERO
@@ -73,7 +78,8 @@ func _update_knob(pos: Vector2) -> void:
 	if delta.length() > base_radius:
 		delta = delta.normalized() * base_radius
 	_knob = _center + delta
-	value = delta / base_radius
+	# Gameplay value: X flipped for steering (see tank_controller STICK_STEER_SIGN).
+	value = Vector2(delta.x * OUTPUT_X_SIGN, delta.y) / base_radius
 	stick_changed.emit(value)
 	queue_redraw()
 

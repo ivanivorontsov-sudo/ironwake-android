@@ -1,9 +1,10 @@
-[gd_scene load_steps=5 format=3 uid="uid://bbattle001iw"]
+[gd_scene load_steps=6 format=3 uid="uid://bbattle001iw"]
 
 [ext_resource type="Script" path="res://scripts/combat/battle_bootstrap.gd" id="1_boot"]
 [ext_resource type="Script" path="res://scripts/combat/tank_controller.gd" id="2_ctrl"]
 [ext_resource type="Script" path="res://scripts/input/battle_hud.gd" id="3_hud"]
 [ext_resource type="Script" path="res://scripts/input/virtual_stick.gd" id="4_stick"]
+[ext_resource type="Script" path="res://scripts/input/crosshair.gd" id="5_cross"]
 
 [node name="Battle" type="Node3D"]
 script = ExtResource("1_boot")
@@ -134,3 +135,20 @@ theme_override_font_sizes/font_size = 13
 theme_override_colors/font_color = Color(0.85, 0.7, 0.45, 1)
 horizontal_alignment = 1
 text = ""
+
+[node name="Crosshair" type="Control" parent="BattleHUD/Root"]
+script = ExtResource("5_cross")
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -60.0
+offset_top = -60.0
+offset_right = 60.0
+offset_bottom = 60.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
