@@ -11,6 +11,8 @@ var aim_pitch: float = 0.0
 var _aim_dragging: bool = false
 var _last_aim_pos: Vector2 = Vector2.ZERO
 var camera_mode: int = 0  # 0 chase, 1 fps/gunner
+## Stick +X was turning the wrong way vs driver expectation — flip sign.
+const STICK_STEER_SIGN := -1.0
 
 
 func setup(p_sim: LocalBattleSim, p_stick: VirtualStick) -> void:
@@ -33,15 +35,18 @@ func _process(_delta: float) -> void:
 	var steer := 0.0
 	if stick and stick.value.length() > 0.05:
 		throttle = -stick.value.y
-		steer = stick.value.x
+		steer = stick.value.x * STICK_STEER_SIGN
 	if Input.is_action_pressed("move_forward"):
 		throttle = maxf(throttle, 1.0)
 	if Input.is_action_pressed("move_back"):
 		throttle = minf(throttle, -0.4)
+	# Godot +yaw is CCW from above = turn LEFT when facing +Z.
+	# Stick: STICK_STEER_SIGN flips +X (finger right) -> -steer -> CW = turn right.
+	# Keys: Left = +yaw (CCW/left), Right = -yaw (CW/right).
 	if Input.is_action_pressed("steer_left"):
-		steer = minf(steer, -1.0)
+		steer = 1.0
 	if Input.is_action_pressed("steer_right"):
-		steer = maxf(steer, 1.0)
+		steer = -1.0
 
 	var fire := fire_held or Input.is_action_just_pressed("fire")
 	var brake := brake_held or Input.is_action_pressed("brake")
@@ -49,7 +54,6 @@ func _process(_delta: float) -> void:
 	if Input.is_action_just_pressed("camera_toggle"):
 		toggle_camera()
 
-	# mouse look when not using touch aim
 	if Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED:
 		var motion := Input.get_last_mouse_velocity() * 0.00002
 		aim_yaw -= motion.x
@@ -67,7 +71,6 @@ func _process(_delta: float) -> void:
 
 
 func handle_aim_input(event: InputEvent) -> void:
-	# Right half of screen drag aims turret
 	if event is InputEventScreenTouch:
 		var st := event as InputEventScreenTouch
 		var vp := get_viewport().get_visible_rect().size

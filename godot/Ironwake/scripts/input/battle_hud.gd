@@ -1,5 +1,5 @@
 extends CanvasLayer
-## Non-overlapping mobile HUD: stick, fire, camera, hangar.
+## Non-overlapping mobile HUD: stick, fire, camera, hangar, iron-sight crosshair.
 
 signal fire_pressed
 signal fire_released
@@ -13,6 +13,7 @@ signal hangar_pressed
 @onready var hp_bar: ProgressBar = $Root/HpBar
 @onready var status_label: Label = $Root/Status
 @onready var modules_label: Label = $Root/Modules
+@onready var crosshair: Control = $Root/Crosshair
 
 
 func _ready() -> void:
@@ -20,6 +21,8 @@ func _ready() -> void:
 	btn_fire.button_up.connect(func(): fire_released.emit())
 	btn_camera.pressed.connect(func(): camera_pressed.emit())
 	btn_hangar.pressed.connect(func(): hangar_pressed.emit())
+	if crosshair:
+		crosshair.queue_redraw()
 
 
 func set_status(text: String) -> void:
@@ -44,3 +47,10 @@ func set_modules(mods: Dictionary, on_fire: bool) -> void:
 		if v < 0.5:
 			parts.append("%s %.0f%%" % [k, v * 100.0])
 	modules_label.text = " · ".join(parts)
+
+
+func set_gunner_mode(on: bool) -> void:
+	if crosshair and crosshair.has_method("set_gunner_mode"):
+		crosshair.set_gunner_mode(on)
+	elif crosshair:
+		crosshair.queue_redraw()

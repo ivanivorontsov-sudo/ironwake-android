@@ -6,7 +6,7 @@ config_version=5
 
 config/name="IRONWAKE"
 config/description="Device-authoritative tank combat client. Meta via Beget; combat local."
-config/version="0.1.0"
+config/version="0.1.1"
 run/main_scene="res://scenes/hangar.tscn"
 config/features=PackedStringArray("4.4", "Mobile")
 config/icon="res://icon.svg"
@@ -85,7 +85,7 @@ common/physics_ticks_per_second=60
 renderer/rendering_method="mobile"
 textures/vram_compression/import_etc2_astc=true
 anti_aliasing/quality/msaa_3d=1
-lights_and_shadows/directional_shadow/size=2048
+lights_and_shadows/directional_shadow/size=4096
 environment/defaults/default_clear_color=Color(0.42, 0.55, 0.68, 1)
 
 [android]

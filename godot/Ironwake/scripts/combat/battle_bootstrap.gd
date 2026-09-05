@@ -1,5 +1,5 @@
 extends Node3D
-## Boots local battle: environment, tanks, sim, HUD, cameras.
+## Boots local battle: environment, tanks, sim, HUD, cameras, combat FX.
 
 @onready var world_root: Node3D = $World
 @onready var units_root: Node3D = $Units
@@ -12,8 +12,11 @@ extends Node3D
 var sim: LocalBattleSim
 var visuals: Dictionary = {}  # id -> TankVisual
 var projectile_meshes: Dictionary = {}
+var fx: CombatFx
 var _match_start_msec: int = 0
 var _reported: bool = false
+var _cam_smooth_pos: Vector3 = Vector3.ZERO
+var _cam_ready: bool = false
 
 
 func _ready() -> void:
@@ -22,9 +25,14 @@ func _ready() -> void:
 	world_root.add_child(env)
 	env.build()
 
+	fx = CombatFx.new()
+	fx.name = "CombatFx"
+	add_child(fx)
+
 	sim = LocalBattleSim.new()
 	sim.name = "LocalBattleSim"
 	add_child(sim)
+	sim.set_obstacles(env.obstacles)
 	sim.state_updated.connect(_on_state)
 	sim.match_ended.connect(_on_match_end)
 	sim.game_event.connect(_on_event)
@@ -46,6 +54,7 @@ func _ready() -> void:
 	chase_camera.current = true
 	gunner_camera.current = false
 	hud.set_status("Локальный бой · last stand · без респавна")
+	hud.set_gunner_mode(false)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -61,6 +70,7 @@ func _apply_camera() -> void:
 	var fps := controller.camera_mode == 1
 	gunner_camera.current = fps
 	chase_camera.current = not fps
+	hud.set_gunner_mode(fps)
 
 
 func _to_hangar() -> void:
@@ -69,12 +79,30 @@ func _to_hangar() -> void:
 
 func _on_event(ev: Dictionary) -> void:
 	var t := str(ev.get("type", ""))
-	if t == "hit" and not bool(ev.get("bounce", false)):
+	if t == "shot":
+		var id := str(ev.get("id", ""))
+		if visuals.has(id):
+			(visuals[id] as TankVisual).play_muzzle_flash()
+		var origin: Vector3 = ev.get("origin", Vector3.ZERO)
+		var dir: Vector3 = ev.get("dir", Vector3.FORWARD)
+		if origin != Vector3.ZERO:
+			fx.spawn_muzzle_flash(origin, dir)
+		fx.play_shot_stub()
+	elif t == "hit" and not bool(ev.get("bounce", false)):
 		hud.set_status("Попадание · %s · %s" % [ev.get("module", "?"), "pen" if ev.get("pen") else "spall"])
+		var hp := Vector3(float(ev.get("x", 0)), float(ev.get("y", 1)), float(ev.get("z", 0)))
+		fx.spawn_hit_sparks(hp)
+		fx.play_hit_stub()
+	elif t == "impact":
+		fx.spawn_hit_sparks(Vector3(float(ev.get("x", 0)), float(ev.get("y", 0.2)), float(ev.get("z", 0))))
 	elif t == "kill":
 		hud.set_status("Уничтожен · %s" % ev.get("id", ""))
 	elif t == "cookoff":
 		hud.set_status("COOK-OFF · %s" % ev.get("id", ""))
+	elif t == "fire_start":
+		var fid := str(ev.get("id", ""))
+		if visuals.has(fid):
+			(visuals[fid] as TankVisual).set_on_fire(true)
 	elif t == "end":
 		hud.set_status("Бой окончен · победа: %s" % (ev.get("winner", "ничья") if str(ev.get("winner", "")) != "" else "ничья"))
 
@@ -115,27 +143,25 @@ func _on_state(state: Dictionary) -> void:
 		var pos := Vector3(float(us.get("x", 0)), float(us.get("y", 0)), float(us.get("z", 0)))
 		vis.set_pose(pos, float(us.get("yaw", 0)), float(us.get("turretYaw", 0)), float(us.get("gunPitch", 0)))
 		vis.set_on_fire(bool(us.get("onFire", false)))
+		var mods: Dictionary = us.get("modules", {})
+		vis.set_module_smoke(float(mods.get("engine", 1.0)) < 0.45, float(mods.get("ammo", 1.0)) < 0.4)
 		vis.visible = bool(us.get("alive", true)) or bool(us.get("spectator", false))
 		if id == local_id:
 			hud.set_hp(float(us.get("hp", 0)), float(us.get("maxHp", 1)))
-			hud.set_modules(us.get("modules", {}), bool(us.get("onFire", false)))
+			hud.set_modules(mods, bool(us.get("onFire", false)))
 			_update_cameras(vis, float(us.get("yaw", 0)), float(us.get("turretYaw", 0)), float(us.get("gunPitch", 0)), pos)
 
-	# projectiles
+	# projectiles as oriented tracers
 	var live_ids: Dictionary = {}
 	for p in state.get("projectiles", []):
 		var pid: String = str(p.get("id", ""))
 		live_ids[pid] = true
+		var ppos := Vector3(float(p.get("x", 0)), float(p.get("y", 0)), float(p.get("z", 0)))
+		var vel := Vector3(float(p.get("vx", 0)), float(p.get("vy", 0)), float(p.get("vz", 1)))
 		if not projectile_meshes.has(pid):
-			var mi := MeshInstance3D.new()
-			var sph := SphereMesh.new()
-			sph.radius = 0.12
-			sph.height = 0.24
-			mi.mesh = sph
-			mi.material_override = IWMaterials.tracer()
-			projectiles_root.add_child(mi)
-			projectile_meshes[pid] = mi
-		(projectile_meshes[pid] as MeshInstance3D).global_position = Vector3(float(p.get("x", 0)), float(p.get("y", 0)), float(p.get("z", 0)))
+			projectile_meshes[pid] = fx.spawn_tracer(ppos, vel)
+		else:
+			fx.update_tracer(projectile_meshes[pid] as MeshInstance3D, ppos, vel)
 	var to_kill: Array = []
 	for pid in projectile_meshes.keys():
 		if not live_ids.has(pid):
@@ -150,12 +176,23 @@ func _on_state(state: Dictionary) -> void:
 
 
 func _update_cameras(vis: TankVisual, yaw: float, turret_yaw: float, gun_pitch: float, pos: Vector3) -> void:
-	var back := Vector3(sin(yaw), 0, cos(yaw)) * -10.0 + Vector3.UP * 4.5
-	chase_camera.global_position = pos + back
-	chase_camera.look_at(pos + Vector3.UP * 1.5, Vector3.UP)
+	var back := Vector3(sin(yaw), 0, cos(yaw)) * -11.0 + Vector3.UP * 4.8
+	var desired_chase := pos + back
+	if not _cam_ready:
+		_cam_smooth_pos = desired_chase
+		_cam_ready = true
+	else:
+		_cam_smooth_pos = _cam_smooth_pos.lerp(desired_chase, 0.18)
+	chase_camera.global_position = _cam_smooth_pos
+	chase_camera.look_at(pos + Vector3.UP * 1.6, Vector3.UP)
 
+	# Gunner / iron-sight: sit on gun mantle, look along aim with slight lead
 	var aim := LocalBattleSim._aim_direction(turret_yaw, gun_pitch)
-	var gun_pos := pos + Vector3.UP * 1.55 + aim * 0.4
+	var gun_pos := vis.get_muzzle_global() - aim * 0.85
+	if gun_pos.distance_squared_to(pos) > 80.0:
+		gun_pos = pos + Vector3.UP * 1.55 + aim * 0.35
 	gunner_camera.global_position = gun_pos
-	gunner_camera.look_at(gun_pos + aim * 20.0, Vector3.UP)
+	var look_target := gun_pos + aim * 40.0 + Vector3.UP * 0.05
+	gunner_camera.look_at(look_target, Vector3.UP)
+	gunner_camera.fov = 48.0 if controller.camera_mode == 1 else 55.0
 	_apply_camera()
