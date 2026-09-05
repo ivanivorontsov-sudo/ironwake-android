@@ -80,3 +80,5 @@ permissions/access_network_state=true
 ; CI trigger: final APK build.
 
 ; runner validation trigger
+
+; CI APK export trigger
