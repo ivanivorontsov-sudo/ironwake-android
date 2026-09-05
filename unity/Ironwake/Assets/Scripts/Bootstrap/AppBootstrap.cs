@@ -9,15 +9,13 @@ namespace Ironwake.Bootstrap
     /// <summary>
     /// Empty YAML scenes ship without MonoBehaviours — this boots Hangar/Battle at runtime
     /// so Android APKs are not a black screen.
+    /// Hangar main UI is OnGUI-only (HangarUI); do not spawn duplicate uGUI hangar buttons here.
     /// </summary>
     public static class AppBootstrap
     {
-        const string BootFlag = "Ironwake.AppBootstrap.Done";
-
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void OnAfterSceneLoad()
         {
-            // Avoid double-boot if domain reload mid-play
             EnsureCameraAndLight();
             EnsureEventSystem();
 
@@ -26,9 +24,34 @@ namespace Ironwake.Bootstrap
                 scene = "Hangar";
 
             if (scene.IndexOf("Battle", System.StringComparison.OrdinalIgnoreCase) >= 0)
+            {
                 EnsureComponent<BattleBootstrap>("BattleBootstrap");
+            }
             else
-                EnsureComponent<HangarUI>("HangarUI");
+            {
+                // Exactly one HangarUI — never build a parallel uGUI hangar canvas here.
+                EnsureSingleHangarUI();
+            }
+        }
+
+        static void EnsureSingleHangarUI()
+        {
+            var existing = Object.FindObjectsOfType<HangarUI>();
+            if (existing != null && existing.Length > 1)
+            {
+                for (int i = 1; i < existing.Length; i++)
+                {
+                    if (existing[i] != null)
+                        Object.Destroy(existing[i].gameObject);
+                }
+                Debug.Log("[IRONWAKE] AppBootstrap pruned duplicate HangarUI instances");
+                return;
+            }
+            if (existing != null && existing.Length == 1) return;
+
+            var go = new GameObject("HangarUI");
+            go.AddComponent<HangarUI>();
+            Debug.Log($"[IRONWAKE] AppBootstrap attached HangarUI on scene '{SceneManager.GetActiveScene().name}'");
         }
 
         static void EnsureCameraAndLight()
@@ -43,7 +66,7 @@ namespace Ironwake.Bootstrap
             }
 
             cam.clearFlags = CameraClearFlags.SolidColor;
-            cam.backgroundColor = new Color(0.12f, 0.14f, 0.16f, 1f);
+            cam.backgroundColor = new Color(0.42f, 0.55f, 0.68f, 1f);
             cam.nearClipPlane = 0.1f;
             cam.farClipPlane = 500f;
             if (cam.transform.position.sqrMagnitude < 0.01f)
@@ -56,15 +79,17 @@ namespace Ironwake.Bootstrap
             {
                 var sun = new GameObject("Sun").AddComponent<Light>();
                 sun.type = LightType.Directional;
-                sun.color = new Color(1f, 0.96f, 0.9f);
-                sun.intensity = 1.15f;
-                sun.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
+                sun.color = new Color(1f, 0.95f, 0.85f);
+                sun.intensity = 1.25f;
+                sun.transform.rotation = Quaternion.Euler(48f, -35f, 0f);
                 sun.shadows = LightShadows.Soft;
             }
 
-            // Visible ambient so unlit/default materials aren't pure black
-            RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
-            RenderSettings.ambientLight = new Color(0.35f, 0.38f, 0.4f);
+            RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Trilight;
+            RenderSettings.ambientSkyColor = new Color(0.48f, 0.58f, 0.7f);
+            RenderSettings.ambientEquatorColor = new Color(0.42f, 0.4f, 0.34f);
+            RenderSettings.ambientGroundColor = new Color(0.2f, 0.18f, 0.14f);
+            RenderSettings.ambientIntensity = 1.1f;
         }
 
         static void EnsureEventSystem()
@@ -72,7 +97,6 @@ namespace Ironwake.Bootstrap
             if (Object.FindObjectOfType<EventSystem>() != null) return;
             var es = new GameObject("EventSystem");
             es.AddComponent<EventSystem>();
-            // Input System package may be present — prefer both modules if available
             es.AddComponent<StandaloneInputModule>();
         }
 
