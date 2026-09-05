@@ -17,7 +17,7 @@ var _match_start_msec: int = 0
 var _reported: bool = false
 var _cam_smooth_pos: Vector3 = Vector3.ZERO
 var _cam_ready: bool = false
-var _bot_count: int = 1
+var _bot_count: int = 2
 
 
 func _ready() -> void:
@@ -77,10 +77,15 @@ func _apply_camera() -> void:
 
 
 func _toggle_bots() -> void:
-	_bot_count = 0 if _bot_count == 1 else 1
+	# Cycle 1..8; never allow zero because LocalBattleSim would end immediately.
+	_bot_count = 1 if _bot_count >= 8 else _bot_count + 1
 	sim.set_bot_count(_bot_count)
+	# Clear transient input state so changing the room never leaves controls locked.
+	controller.fire_held = false
+	controller.brake_held = false
+	controller.release_aim_input()
 	hud.set_bot_count(_bot_count)
-	hud.set_status("Боты: %d · прицеливайся и стреляй" % _bot_count)
+	hud.set_status("Противников: %d · управление готово" % _bot_count)
 
 func _to_hangar() -> void:
 	get_tree().change_scene_to_file("res://scenes/hangar.tscn")
