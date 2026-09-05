@@ -30,7 +30,7 @@ func _ready() -> void:
 
 func set_bot_count(count: int) -> void:
 	if btn_bots:
-		btn_bots.text = "БОТ: %d" % count
+		btn_bots.text = "БОТЫ: %d/8" % count
 
 func set_status(text: String) -> void:
 	if status_label:
