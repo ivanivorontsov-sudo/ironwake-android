@@ -5,7 +5,7 @@ using Ironwake.Combat;
 using Ironwake.Sim;
 using Ironwake.Net;
 
-namespace Ironwake.Input
+namespace Ironwake.Controls
 {
     /// <summary>
     /// Virtual joystick (move) + fire button + aim drag for mobile battle.

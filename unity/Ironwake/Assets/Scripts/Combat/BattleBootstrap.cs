@@ -6,7 +6,7 @@ using Ironwake.Vehicles;
 using Ironwake.Meta;
 using Ironwake.Graphics;
 using Ironwake.Sim;
-using Ironwake.Input;
+using Ironwake.Controls;
 
 namespace Ironwake.Combat
 {
