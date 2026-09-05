@@ -57,6 +57,7 @@ func _ready() -> void:
 	chase_camera.current = true
 	gunner_camera.current = false
 	hud.set_status("Локальный бой · last stand · без респавна")
+	hud.set_economy(GameState.credits, GameState.achievements.size(), GameState.kills)
 	hud.set_gunner_mode(false)
 
 
@@ -132,6 +133,8 @@ func _on_match_end(winner: String) -> void:
 	var survived := local_u != null and local_u.alive
 	var victory := winner == "blue"
 	var duration := (Time.get_ticks_msec() - _match_start_msec) / 1000.0
+	var battle_kills := local_u.kills if local_u else 0
+	GameState.award_battle(victory, battle_kills)
 	ApiClient.report_match({
 		"userId": GameState.user_id,
 		"vehicleId": GameState.vehicle_id,
@@ -140,7 +143,9 @@ func _on_match_end(winner: String) -> void:
 		"victory": victory,
 		"survived": survived,
 		"duration": duration,
-		"kills": local_u.kills if local_u else 0,
+		"kills": battle_kills,
+		"credits": GameState.credits,
+		"achievements": GameState.achievements,
 		"mode": "local_laststand",
 	})
 
