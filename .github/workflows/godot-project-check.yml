@@ -1,4 +1,5 @@
 name: Godot project check
+# fresh APK run trigger
 on:
   push:
     paths:
