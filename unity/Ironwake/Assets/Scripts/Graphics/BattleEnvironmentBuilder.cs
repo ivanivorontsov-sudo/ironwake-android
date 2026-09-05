@@ -308,9 +308,13 @@ namespace Ironwake.Graphics
             if (_searched) return;
             _searched = true;
             _triplanar = Shader.Find("Ironwake/IW_SimpleLitTriplanar");
-            _urpLit = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("URP/Lit");
-            _unlit = Shader.Find("Universal Render Pipeline/Unlit")
-                     ?? Shader.Find("Unlit/Color")
+            // Prefer built-in (APK ships without URP asset — URP Lit renders magenta).
+            _urpLit = Shader.Find("Standard")
+                      ?? Shader.Find("Mobile/Diffuse")
+                      ?? Shader.Find("Diffuse")
+                      ?? Shader.Find("Universal Render Pipeline/Lit");
+            _unlit = Shader.Find("Unlit/Color")
+                     ?? Shader.Find("UI/Default")
                      ?? Shader.Find("Sprites/Default")
                      ?? Shader.Find("Diffuse");
         }

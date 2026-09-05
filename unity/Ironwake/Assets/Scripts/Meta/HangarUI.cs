@@ -62,7 +62,25 @@ namespace Ironwake.Meta
             go.AddComponent<IronwakeClient>();
         }
 
-        IEnumerator BootSequence()
+        void OnGUI()
+        {
+            // Emergency HUD if uGUI shaders strip to magenta on device
+            const float pad = 12f;
+            GUI.color = Color.white;
+            var box = new Rect(pad, pad, Screen.width - pad * 2f, 72f);
+            GUI.Box(box, "");
+            GUI.Label(new Rect(pad + 8f, pad + 8f, box.width - 16f, 28f),
+                "IRONWAKE · АНГАР", new GUIStyle(GUI.skin.label) { fontSize = 22, fontStyle = FontStyle.Bold });
+            string st = statusText != null ? statusText.text : "загрузка…";
+            GUI.Label(new Rect(pad + 8f, pad + 36f, box.width - 16f, 28f), st);
+            float bw = 200f, bh = 48f, y = Screen.height - bh - pad;
+            if (GUI.Button(new Rect(pad, y, bw, bh), "ЛОКАЛЬНЫЙ БОЙ"))
+                OnLocalBattle();
+            if (GUI.Button(new Rect(pad + bw + 12f, y, bw, bh), "ОНЛАЙН"))
+                OnOnlineBattle();
+        }
+
+                IEnumerator BootSequence()
         {
             SetStatus("Ангар · подключение…");
             bool? ok = null;
@@ -153,6 +171,10 @@ namespace Ironwake.Meta
             var go = new GameObject(name);
             go.transform.SetParent(parent, false);
             var t = go.AddComponent<Text>();
+            t.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            if (t.font == null) t.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            if (t.font == null) t.font = Font.CreateDynamicFontFromOSFont(new[] { "sans-serif", "Roboto", "Arial" }, 16);
+            if (t.font == null) t.font = Font.CreateDynamicFontFromOSFont("sans-serif", 16);
             t.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
             t.fontSize = size;
             t.color = new Color(0.9f, 0.88f, 0.82f);
