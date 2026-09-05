@@ -82,20 +82,6 @@ export/android/android_sdk_path = "$ANDROID_SDK_ROOT"
 export/android/java_sdk_path = "$JAVA_HOME"
 EOF
 
-      - name: Install exact official Android build template
-        run: |
-          set -euxo pipefail
-          rm -rf "$PROJECT_DIR/android" "$RUNNER_TEMP/godot-android-source"
-          mkdir -p "$RUNNER_TEMP/godot-android-source" "$PROJECT_DIR/android"
-          unzip -q "$TEMPLATES_DIR/templates/android_source.zip" -d "$RUNNER_TEMP/godot-android-source"
-          if [ -d "$RUNNER_TEMP/godot-android-source/android" ]; then
-            rsync -a "$RUNNER_TEMP/godot-android-source/android/" "$PROJECT_DIR/android/"
-          else
-            rsync -a "$RUNNER_TEMP/godot-android-source/" "$PROJECT_DIR/android/"
-          fi
-          test -f "$PROJECT_DIR/android/build.gradle"
-          test -f "$PROJECT_DIR/android/settings.gradle"
-
       - name: Install Godot export templates
         run: |
           set -euxo pipefail
