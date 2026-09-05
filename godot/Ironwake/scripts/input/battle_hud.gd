@@ -16,6 +16,7 @@ signal bots_pressed
 @onready var status_label: Label = $Root/Status
 @onready var modules_label: Label = $Root/Modules
 @onready var crosshair: Control = $Root/Crosshair
+@onready var economy_label: Label = $Root/Economy
 
 
 func _ready() -> void:
@@ -31,6 +32,10 @@ func _ready() -> void:
 func set_bot_count(count: int) -> void:
 	if btn_bots:
 		btn_bots.text = "БОТЫ: %d/8" % count
+
+func set_economy(credits: int, achievements: int, kills: int) -> void:
+	if economy_label:
+		economy_label.text = "КРЕДИТЫ %d  ·  ДОСТИЖЕНИЯ %d  ·  KILLS %d" % [credits, achievements, kills]
 
 func set_status(text: String) -> void:
 	if status_label:
