@@ -161,11 +161,11 @@ func _process(delta: float) -> void:
 
 
 func _mat() -> StandardMaterial3D:
-	return IWMaterials.team_tint(IWMaterials.painted_armor(team), team)
+	return IWMaterials.painted_armor(team)
 
 
 func _mat_dark() -> StandardMaterial3D:
-	return IWMaterials.team_tint(IWMaterials.olive_dark(), team)
+	return IWMaterials.olive_dark()
 
 
 func _add_box(parent: Node3D, size: Vector3, pos: Vector3, mat: StandardMaterial3D, rot_y: float = 0.0) -> MeshInstance3D:
