@@ -1,10 +1,11 @@
 class_name LocalBotAI
 extends RefCounted
-## Chase / engage bots: aim at player, hold lead, fire when on target.
+## Deliberately forgiving bots: human-friendly reaction, aim error and fire cadence.
 
 var sim: LocalBattleSim
 var _timers: Dictionary = {}  # id -> retarget timer
 var _engage_side: Dictionary = {}  # id -> circle side (+1/-1)
+var _reaction: Dictionary = {}
 
 
 func _init(p_sim: LocalBattleSim) -> void:
@@ -37,7 +38,8 @@ func tick(dt: float) -> void:
 		_timers[u.id] = float(_timers.get(u.id, 0.0)) - dt
 		if float(_timers.get(u.id, 0.0)) <= 0.0:
 			u.target_id = _pick_target(u)
-			_timers[u.id] = randf_range(0.45, 0.95)
+			_timers[u.id] = randf_range(0.9, 1.6)
+			_reaction[u.id] = randf_range(0.15, 0.32)
 			if not _engage_side.has(u.id):
 				_engage_side[u.id] = 1.0 if (hash(u.id) & 1) == 0 else -1.0
 		_drive(u, dt)
@@ -86,8 +88,11 @@ func _drive(u: SimUnit, dt: float) -> void:
 	var aim_dist := maxf(aim_to.length(), 1.0)
 	var elev := clampf(aim_to.y / aim_dist, -0.2, 0.28)
 
-	inp.aim_yaw = aim_yaw
-	inp.aim_pitch = elev
+	var reaction := float(_reaction.get(u.id, 0.22))
+	var aim_noise := reaction * 0.32
+	var phase := Time.get_ticks_msec() * 0.0015 + float(hash(u.id) & 31)
+	inp.aim_yaw = aim_yaw + sin(phase) * aim_noise
+	inp.aim_pitch = elev + cos(phase * 0.73) * aim_noise * 0.55
 
 	var yaw_err := _angle_diff(desired_yaw, u.yaw)
 	var side: float = float(_engage_side.get(u.id, 1.0))
@@ -111,9 +116,9 @@ func _drive(u: SimUnit, dt: float) -> void:
 
 	var aim_err := absf(_angle_diff(aim_yaw, u.turret_yaw))
 	var pitch_err := absf(elev - u.gun_pitch)
-	if aim_err < 0.10 and pitch_err < 0.12 and dist < 95.0 and u.reload_timer <= 0.0:
+	if aim_err < 0.075 and pitch_err < 0.09 and dist < 75.0 and u.reload_timer <= 0.0 and randf() < sim.bot_difficulty * 0.42:
 		inp.fire = true
-	elif aim_err < 0.18 and dist < 55.0 and u.reload_timer <= 0.0 and randf() < 0.35:
+	elif aim_err < 0.13 and dist < 48.0 and u.reload_timer <= 0.0 and randf() < sim.bot_difficulty * 0.12:
 		inp.fire = true
 
 	u.pending_input = inp
