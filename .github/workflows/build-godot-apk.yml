@@ -16,10 +16,9 @@ jobs:
   build-apk:
     runs-on: ubuntu-22.04
     env:
-      GODOT_VERSION: "4.4"
       GODOT_ROOT: "${{ github.workspace }}/godot-bin"
-      GODOT_ANDROID: "${{ github.workspace }}/godot-bin/android"
       PROJECT_DIR: "${{ github.workspace }}/godot/Ironwake"
+      TEMPLATES_DIR: "${{ github.workspace }}/godot-templates"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -36,49 +35,58 @@ jobs:
           chmod +x "$GODOT_ROOT/godot"
           "$GODOT_ROOT/godot" --version
 
-      - name: Download official Godot 4.4 Android export templates
+      - name: Download official Godot 4.4 export templates
         run: |
           set -euxo pipefail
-          mkdir -p "$GODOT_ANDROID"
+          mkdir -p "$TEMPLATES_DIR"
           curl -fL --retry 5 --retry-all-errors \
-            -o /tmp/templates.tpz \
+            -o /tmp/export-templates.tpz \
             "https://github.com/godotengine/godot/releases/download/4.4-stable/Godot_v4.4-stable_export_templates.tpz"
-          mkdir -p /tmp/templates
-          unzip -q /tmp/templates.tpz -d /tmp/templates
-          mkdir -p "$GODOT_ANDROID/templates"
-          if [ -d /tmp/templates/templates ]; then
-            cp -a /tmp/templates/templates/. "$GODOT_ANDROID/templates/"
-          else
-            cp -a /tmp/templates/. "$GODOT_ANDROID/templates/"
-          fi
-          find "$GODOT_ANDROID/templates" -maxdepth 2 -type f -print
+          unzip -q /tmp/export-templates.tpz -d "$TEMPLATES_DIR"
+          find "$TEMPLATES_DIR" -type f -maxdepth 3 -print
 
-      - name: Install Android command-line dependencies
+      - name: Install Android build prerequisites
         run: |
           set -euxo pipefail
           sudo apt-get update
-          sudo apt-get install -y openjdk-17-jdk unzip rsync
+          sudo apt-get install -y openjdk-17-jdk unzip rsync android-sdk
 
-      - name: Prepare Godot user directory and export templates
+      - name: Install Godot export templates
         run: |
           set -euxo pipefail
           mkdir -p "$HOME/.local/share/godot/export_templates/4.4.stable"
-          rsync -a "$GODOT_ANDROID/templates/" "$HOME/.local/share/godot/export_templates/4.4.stable/"
-          "$GODOT_ROOT/godot" --headless --path "$PROJECT_DIR" --editor --quit-after 5
+          if [ -d "$TEMPLATES_DIR/templates" ]; then
+            rsync -a "$TEMPLATES_DIR/templates/" "$HOME/.local/share/godot/export_templates/4.4.stable/"
+          else
+            rsync -a "$TEMPLATES_DIR/" "$HOME/.local/share/godot/export_templates/4.4.stable/"
+          fi
 
-      - name: Import project assets
+      - name: Discover Android SDK and Java
+        run: |
+          set -euxo pipefail
+          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
+          if [ -z "$SDK_ROOT" ]; then
+            for p in "$HOME/Android/Sdk" "/opt/android-sdk" "/usr/lib/android-sdk"; do
+              if [ -d "$p" ]; then SDK_ROOT="$p"; break; fi
+            done
+          fi
+          test -n "$SDK_ROOT"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64" >> "$GITHUB_ENV"
+
+      - name: Import Godot project
         run: |
           set -euxo pipefail
           "$GODOT_ROOT/godot" --headless --path "$PROJECT_DIR" --editor --import
           "$GODOT_ROOT/godot" --headless --path "$PROJECT_DIR" --editor --quit-after 5
 
-      - name: Ensure Android export preset/package identity
-        working-directory: godot/Ironwake
+      - name: Verify Android export configuration
         run: |
           set -euxo pipefail
-          grep -q '^\[preset.0\]' export_presets.cfg
-          grep -q 'platform="Android"' export_presets.cfg
-          grep -q 'org.ivanivorontsov.ironwake' export_presets.cfg || true
+          grep -q '^name="Android"$' "$PROJECT_DIR/export_presets.cfg"
+          grep -q '^platform="Android"$' "$PROJECT_DIR/export_presets.cfg"
+          grep -q 'package/unique_name="org.ivanivorontsov.ironwake"' "$PROJECT_DIR/export_presets.cfg"
 
       - name: Export debug APK
         run: |
@@ -86,8 +94,8 @@ jobs:
           mkdir -p "$GITHUB_WORKSPACE/build"
           "$GODOT_ROOT/godot" --headless --path "$PROJECT_DIR" --editor --export-debug "Android" "$GITHUB_WORKSPACE/build/ironwake-debug.apk"
           test -s "$GITHUB_WORKSPACE/build/ironwake-debug.apk"
-          file "$GITHUB_WORKSPACE/build/ironwake-debug.apk"
           unzip -t "$GITHUB_WORKSPACE/build/ironwake-debug.apk" >/dev/null
+          file "$GITHUB_WORKSPACE/build/ironwake-debug.apk"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
