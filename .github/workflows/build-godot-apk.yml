@@ -56,6 +56,7 @@ jobs:
           unzip -q /tmp/export-templates.tpz -d "$TEMPLATES_DIR"
           test -s "$TEMPLATES_DIR/templates/android_debug.apk"
           test -s "$TEMPLATES_DIR/templates/android_release.apk"
+          test -s "$TEMPLATES_DIR/templates/android_source.zip"
 
       - name: Bootstrap Android SDK command-line tools
         run: |
@@ -82,13 +83,24 @@ export/android/android_sdk_path = "$ANDROID_SDK_ROOT"
 export/android/java_sdk_path = "$JAVA_HOME"
 EOF
 
-      - name: Install Godot Android build templates
+      - name: Install official Android build template into project
         run: |
           set -euxo pipefail
-          mkdir -p "$PROJECT_DIR/android/build-templates"
-          rsync -a "$TEMPLATES_DIR/templates/android/" "$PROJECT_DIR/android/build-templates/"
-          test -d "$PROJECT_DIR/android/build-templates"
-          find "$PROJECT_DIR/android/build-templates" -maxdepth 2 -type f -print | head -40
+          rm -rf "$PROJECT_DIR/android"
+          mkdir -p "$PROJECT_DIR/android"
+          unzip -q "$TEMPLATES_DIR/templates/android_source.zip" -d "$PROJECT_DIR/android"
+          test -f "$PROJECT_DIR/android/build.gradle"
+          test -f "$PROJECT_DIR/android/settings.gradle"
+          find "$PROJECT_DIR/android" -maxdepth 2 -type f -print | head -60
+
+      - name: Install Godot export templates
+        run: |
+          set -euxo pipefail
+          DEST="$HOME/.local/share/godot/export_templates/4.4.stable"
+          mkdir -p "$DEST"
+          rsync -a "$TEMPLATES_DIR/templates/" "$DEST/"
+          test -s "$DEST/android_debug.apk"
+          test -s "$DEST/android_source.zip"
 
       - name: Import and validate project
         run: |
