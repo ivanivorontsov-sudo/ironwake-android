@@ -1,0 +1,115 @@
+name: Build IRONWAKE Android APK
+
+on:
+  push:
+    branches: [graphics-overhaul-2026-09]
+    paths:
+      - "godot/Ironwake/**"
+      - ".github/workflows/build-android-apk.yml"
+  workflow_dispatch:
+
+jobs:
+  apk:
+    runs-on: ubuntu-22.04
+    env:
+      GODOT_VERSION: "4.4"
+      GODOT_ROOT: ${{ github.workspace }}/.godot-bin
+      GODOT_PROJECT: ${{ github.workspace }}/godot/Ironwake
+      GODOT_TEMPLATES: ${{ github.workspace }}/.godot-templates
+      ANDROID_HOME: ${{ github.workspace }}/.android-sdk
+      ANDROID_SDK_ROOT: ${{ github.workspace }}/.android-sdk
+    steps:
+      - name: Checkout exact branch head
+        uses: actions/checkout@v4
+        with:
+          ref: graphics-overhaul-2026-09
+          fetch-depth: 1
+
+      - name: Install build prerequisites
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          sudo apt-get install -y openjdk-17-jdk unzip rsync
+          java -version
+
+      - name: Download official Godot 4.4 Linux binary
+        run: |
+          set -euxo pipefail
+          mkdir -p "$GODOT_ROOT"
+          curl -fL --retry 5 --retry-all-errors -o /tmp/godot.zip             "https://github.com/godotengine/godot/releases/download/4.4-stable/Godot_v4.4-stable_linux.x86_64.zip"
+          unzip -q /tmp/godot.zip -d "$GODOT_ROOT"
+          mv "$GODOT_ROOT/Godot_v4.4-stable_linux.x86_64" "$GODOT_ROOT/godot"
+          chmod +x "$GODOT_ROOT/godot"
+          "$GODOT_ROOT/godot" --version
+
+      - name: Download official Godot 4.4 Android export templates
+        run: |
+          set -euxo pipefail
+          mkdir -p "$GODOT_TEMPLATES"
+          curl -fL --retry 5 --retry-all-errors -o /tmp/templates.tpz             "https://github.com/godotengine/godot/releases/download/4.4-stable/Godot_v4.4-stable_export_templates.tpz"
+          unzip -q /tmp/templates.tpz -d "$GODOT_TEMPLATES"
+          test -s "$GODOT_TEMPLATES/templates/android_debug.apk"
+          test -s "$GODOT_TEMPLATES/templates/android_release.apk"
+
+      - name: Bootstrap Android SDK
+        run: |
+          set -euxo pipefail
+          mkdir -p "$ANDROID_HOME/cmdline-tools"
+          curl -fL --retry 5 --retry-all-errors -o /tmp/cmdline.zip             "https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip"
+          unzip -q /tmp/cmdline.zip -d "$ANDROID_HOME/cmdline-tools"
+          mv "$ANDROID_HOME/cmdline-tools/cmdline-tools" "$ANDROID_HOME/cmdline-tools/latest"
+          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$JAVA_HOME/bin:$PATH"
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+          sdkmanager --list_installed
+
+      - name: Install official Godot templates
+        run: |
+          set -euxo pipefail
+          DEST="$HOME/.local/share/godot/export_templates/4.4.stable"
+          mkdir -p "$DEST"
+          rsync -a "$GODOT_TEMPLATES/templates/" "$DEST/"
+          test -s "$DEST/android_debug.apk"
+
+      - name: Configure Android paths
+        run: |
+          set -euxo pipefail
+          mkdir -p "$HOME/.config/godot"
+          cat > "$HOME/.config/godot/editor_settings-4.tres" <<EOF
+[gd_resource type="EditorSettings" format=3]
+
+[resource]
+export/android/android_sdk_path = "$ANDROID_HOME"
+export/android/java_sdk_path = "$JAVA_HOME"
+EOF
+
+      - name: Verify export preset
+        run: |
+          set -euxo pipefail
+          grep -q '^name="Android"$' "$GODOT_PROJECT/export_presets.cfg"
+          grep -q '^platform="Android"$' "$GODOT_PROJECT/export_presets.cfg"
+          grep -q 'package/unique_name="org.ivanivorontsov.ironwake"' "$GODOT_PROJECT/export_presets.cfg"
+          grep -q 'gradle_build/use_gradle_build=false' "$GODOT_PROJECT/export_presets.cfg"
+
+      - name: Import Godot project
+        run: |
+          set -euxo pipefail
+          "$GODOT_ROOT/godot" --headless --path "$GODOT_PROJECT" --editor --import
+          "$GODOT_ROOT/godot" --headless --path "$GODOT_PROJECT" --editor --quit-after 5
+
+      - name: Export Android debug APK
+        run: |
+          set -euxo pipefail
+          mkdir -p build
+          "$GODOT_ROOT/godot" --headless --path "$GODOT_PROJECT" --editor             --export-debug "Android" "$GITHUB_WORKSPACE/build/ironwake-debug.apk"
+          test -s build/ironwake-debug.apk
+          unzip -t build/ironwake-debug.apk >/dev/null
+          ls -lh build/ironwake-debug.apk
+
+      - name: Upload ironwake-android-apk
+        uses: actions/upload-artifact@v4
+        with:
+          name: ironwake-android-apk
+          path: build/ironwake-debug.apk
+          if-no-files-found: error
+          retention-days: 14
