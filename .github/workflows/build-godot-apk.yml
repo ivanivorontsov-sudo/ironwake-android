@@ -133,3 +133,5 @@ EOF
           path: build/ironwake-debug.apk
           if-no-files-found: error
           retention-days: 14
+
+# Build trigger: verify current branch head only.
