@@ -5,11 +5,13 @@ signal fire_pressed
 signal fire_released
 signal camera_pressed
 signal hangar_pressed
+signal bots_pressed
 
 @onready var stick: VirtualStick = $Root/Stick
 @onready var btn_fire: Button = $Root/BtnFire
 @onready var btn_camera: Button = $Root/BtnCamera
 @onready var btn_hangar: Button = $Root/BtnHangar
+@onready var btn_bots: Button = $Root/BtnBots
 @onready var hp_bar: ProgressBar = $Root/HpBar
 @onready var status_label: Label = $Root/Status
 @onready var modules_label: Label = $Root/Modules
@@ -21,9 +23,14 @@ func _ready() -> void:
 	btn_fire.button_up.connect(func(): fire_released.emit())
 	btn_camera.pressed.connect(func(): camera_pressed.emit())
 	btn_hangar.pressed.connect(func(): hangar_pressed.emit())
+	btn_bots.pressed.connect(func(): bots_pressed.emit())
 	if crosshair:
 		crosshair.queue_redraw()
 
+
+func set_bot_count(count: int) -> void:
+	if btn_bots:
+		btn_bots.text = "БОТ: %d" % count
 
 func set_status(text: String) -> void:
 	if status_label:
