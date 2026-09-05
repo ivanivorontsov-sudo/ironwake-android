@@ -121,6 +121,21 @@ theme_override_colors/font_color = Color(0.92, 0.90, 0.76, 1)
 horizontal_alignment = 1
 text = "Бой"
 
+[node name="Economy" type="Label" parent="BattleHUD/Root"]
+layout_mode = 1
+anchors_preset = 10
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -270.0
+offset_top = 118.0
+offset_right = 270.0
+offset_bottom = 140.0
+grow_horizontal = 2
+theme_override_font_sizes/font_size = 11
+theme_override_colors/font_color = Color(0.72, 0.82, 0.55, 0.95)
+horizontal_alignment = 1
+text = "КРЕДИТЫ 0  ·  ДОСТИЖЕНИЯ 0  ·  KILLS 0"
+
 [node name="Modules" type="Label" parent="BattleHUD/Root"]
 layout_mode = 1
 anchors_preset = 10
