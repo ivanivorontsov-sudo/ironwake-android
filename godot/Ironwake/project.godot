@@ -78,3 +78,5 @@ permissions/internet=true
 permissions/access_network_state=true
 
 ; CI trigger: final APK build.
+
+; runner validation trigger
