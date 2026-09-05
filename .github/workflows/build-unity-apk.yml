@@ -43,9 +43,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: unity/Ironwake/Library
-          key: Library-Ironwake-Android-${{ hashFiles('unity/Ironwake/Packages/manifest.json', 'unity/Ironwake/ProjectSettings/ProjectVersion.txt') }}
-          restore-keys: |
-            Library-Ironwake-Android-
+          key: Library-Ironwake-Android-builtin-v3-${{ hashFiles('unity/Ironwake/Packages/manifest.json', 'unity/Ironwake/ProjectSettings/ProjectVersion.txt') }}
 
       - name: Build debug APK
         uses: game-ci/unity-builder@v4
