@@ -50,8 +50,10 @@ jobs:
           mkdir -p "$HOME/.config/godot"
           printf '%s\n' '[gd_resource type="EditorSettings" format=3]' '' '[resource]' 'export/android/android_sdk_path = "'$ANDROID_SDK_ROOT'"' 'export/android/java_sdk_path = "'$JAVA_HOME'"' > "$HOME/.config/godot/editor_settings-4.tres"
           "$GODOT_BIN" --headless --path godot/Ironwake --editor --import
-          mkdir -p build
+          mkdir -p godot/Ironwake/build build
           "$GODOT_BIN" --headless --path godot/Ironwake --editor --export-debug Android build/ironwake-debug.apk
+          test -s godot/Ironwake/build/ironwake-debug.apk
+          cp godot/Ironwake/build/ironwake-debug.apk build/ironwake-debug.apk
           test -s build/ironwake-debug.apk
           unzip -t build/ironwake-debug.apk >/dev/null
       - uses: actions/upload-artifact@v4
