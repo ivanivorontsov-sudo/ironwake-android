@@ -17,6 +17,7 @@ var _match_start_msec: int = 0
 var _reported: bool = false
 var _cam_smooth_pos: Vector3 = Vector3.ZERO
 var _cam_ready: bool = false
+var _bot_count: int = 1
 
 
 func _ready() -> void:
@@ -43,6 +44,8 @@ func _ready() -> void:
 	hud.fire_released.connect(func(): controller.fire_held = false)
 	hud.camera_pressed.connect(_toggle_camera)
 	hud.hangar_pressed.connect(_to_hangar)
+	hud.bots_pressed.connect(_toggle_bots)
+	hud.set_bot_count(_bot_count)
 
 	_match_start_msec = Time.get_ticks_msec()
 	sim.start_local_battle(
@@ -72,6 +75,12 @@ func _apply_camera() -> void:
 	chase_camera.current = not fps
 	hud.set_gunner_mode(fps)
 
+
+func _toggle_bots() -> void:
+	_bot_count = 0 if _bot_count == 1 else 1
+	sim.set_bot_count(_bot_count)
+	hud.set_bot_count(_bot_count)
+	hud.set_status("Боты: %d · прицеливайся и стреляй" % _bot_count)
 
 func _to_hangar() -> void:
 	get_tree().change_scene_to_file("res://scenes/hangar.tscn")
