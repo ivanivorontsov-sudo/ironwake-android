@@ -286,7 +286,6 @@ namespace Ironwake.Graphics
             RenderSettings.fogStartDistance = 55f;
             RenderSettings.fogEndDistance = 280f;
             // Skybox-less gradient feel via camera clear color (set by tuner / cameras)
-            Camera.main?.ResetClearFlags();
             foreach (var cam in Object.FindObjectsOfType<Camera>())
             {
                 cam.clearFlags = CameraClearFlags.SolidColor;
