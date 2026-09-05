@@ -58,7 +58,7 @@ jobs:
           projectPath: unity/Ironwake
           unityVersion: 6000.0.23f1
           targetPlatform: Android
-          androidExportType: apk
+          androidExportType: androidPackage
           buildName: Ironwake
           allowDirtyBuild: true
 
