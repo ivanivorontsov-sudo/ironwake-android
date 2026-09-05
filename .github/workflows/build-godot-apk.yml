@@ -35,7 +35,7 @@ jobs:
           chmod +x "$GODOT_ROOT/godot"
           "$GODOT_ROOT/godot" --version
 
-      - name: Download official Godot 4.4 export templates
+      - name: Download official Godot 4.4 Android export templates
         run: |
           set -euxo pipefail
           mkdir -p "$TEMPLATES_DIR"
@@ -43,7 +43,9 @@ jobs:
             -o /tmp/export-templates.tpz \
             "https://github.com/godotengine/godot/releases/download/4.4-stable/Godot_v4.4-stable_export_templates.tpz"
           unzip -q /tmp/export-templates.tpz -d "$TEMPLATES_DIR"
-          find "$TEMPLATES_DIR" -type f -maxdepth 3 -print
+          test -f "$TEMPLATES_DIR/templates/android_debug.apk"
+          test -f "$TEMPLATES_DIR/templates/android_release.apk"
+          find "$TEMPLATES_DIR/templates" -maxdepth 1 -type f -print
 
       - name: Install Android build prerequisites
         run: |
@@ -55,11 +57,9 @@ jobs:
         run: |
           set -euxo pipefail
           mkdir -p "$HOME/.local/share/godot/export_templates/4.4.stable"
-          if [ -d "$TEMPLATES_DIR/templates" ]; then
-            rsync -a "$TEMPLATES_DIR/templates/" "$HOME/.local/share/godot/export_templates/4.4.stable/"
-          else
-            rsync -a "$TEMPLATES_DIR/" "$HOME/.local/share/godot/export_templates/4.4.stable/"
-          fi
+          rsync -a "$TEMPLATES_DIR/templates/" "$HOME/.local/share/godot/export_templates/4.4.stable/"
+          test -f "$HOME/.local/share/godot/export_templates/4.4.stable/android_debug.apk"
+          test -f "$HOME/.local/share/godot/export_templates/4.4.stable/android_release.apk"
 
       - name: Discover Android SDK and Java
         run: |
