@@ -14,6 +14,9 @@ var vehicle_class: String = "tank"
 var _muzzle_flash: MeshInstance3D
 var _flash_timer: float = 0.0
 var _smoke_pulse: float = 0.0
+var _rotor_time: float = 0.0
+var _main_rotor: Node3D
+var _tail_rotor: Node3D
 
 
 func build(def: Dictionary, p_team: String = "blue") -> void:
@@ -43,6 +46,8 @@ func build(def: Dictionary, p_team: String = "blue") -> void:
 			_build_car()
 		"heli":
 			_build_heli()
+		"plane", "aircraft", "airplane":
+			_build_plane()
 		_:
 			_build_tank()
 
@@ -158,6 +163,11 @@ func _process(delta: float) -> void:
 		smoke_fx.position.y = 1.7 + 0.2 * sin(_smoke_pulse * 0.7)
 	if fire_fx and fire_fx.visible:
 		fire_fx.scale = Vector3.ONE * (0.9 + 0.25 * sin(Time.get_ticks_msec() * 0.012))
+	if _main_rotor:
+		_rotor_time += delta
+		_main_rotor.rotation.y = _rotor_time * 18.0
+	if _tail_rotor:
+		_tail_rotor.rotation.x = _rotor_time * 24.0
 
 
 func _mat() -> StandardMaterial3D:
@@ -249,10 +259,75 @@ func _build_car() -> void:
 
 
 func _build_heli() -> void:
+	# Detailed attack-helicopter silhouette: rounded cabin, engine housings,
+	# swept tail boom, twin skids, main/tail rotors and weapon pylons.
 	var m := _mat()
-	_add_box(hull, Vector3(1.65, 1.05, 4.6), Vector3(0, 2.55, 0), m)
-	_add_box(hull, Vector3(0.42, 0.42, 3.1), Vector3(0, 2.35, -3.25), _mat_dark())
-	_add_cyl(hull, 0.08, 5.6, Vector3(0, 3.25, 0), IWMaterials.olive_light())
-	_add_box(turret, Vector3(0.85, 0.42, 0.85), Vector3(0, 2.05, 1.25), m)
-	_add_cyl(gun, 0.06, 1.5, Vector3(0, 2.05, 2.1), IWMaterials.olive_dark(), deg_to_rad(90))
-	muzzle.position = Vector3(0, 2.05, 2.9)
+	var md := _mat_dark()
+	var glass := IWMaterials.canopy()
+	var mi := MeshInstance3D.new()
+	var body_mesh := SphereMesh.new()
+	body_mesh.radius = 1.0
+	body_mesh.height = 2.4
+	body_mesh.radial_segments = 20
+	body_mesh.rings = 10
+	mi.mesh = body_mesh
+	mi.scale = Vector3(0.92, 0.72, 2.05)
+	mi.position = Vector3(0, 2.55, 0.25)
+	mi.material_override = m
+	hull.add_child(mi)
+	_add_box(hull, Vector3(0.92, 0.55, 1.65), Vector3(0, 2.52, 1.52), glass)
+	_add_box(hull, Vector3(1.9, 0.34, 0.62), Vector3(0, 2.0, 0.15), md)
+	_add_box(hull, Vector3(0.38, 0.38, 3.4), Vector3(0, 2.45, -3.0), m, 0.0)
+	_add_box(hull, Vector3(0.22, 0.30, 2.8), Vector3(0, 2.9, -3.15), md)
+	# Engines / intakes
+	for x in [-0.62, 0.62]:
+		_add_box(hull, Vector3(0.42, 0.34, 0.82), Vector3(x, 3.18, -0.35), md)
+		_add_cyl(hull, 0.14, 0.24, Vector3(x, 3.20, -0.82), IWMaterials.rubber(), deg_to_rad(90))
+	# Landing skids and struts
+	for x in [-0.78, 0.78]:
+		_add_cyl(hull, 0.055, 3.65, Vector3(x, 1.55, 0.15), md, deg_to_rad(90))
+		_add_cyl(hull, 0.045, 1.2, Vector3(x * 0.72, 1.72, 0.65), md, deg_to_rad(90))
+		_add_cyl(hull, 0.045, 1.2, Vector3(x * 0.72, 1.72, -0.85), md, deg_to_rad(90))
+	# Rotor mast and animated rotor hub.
+	_add_cyl(hull, 0.075, 1.15, Vector3(0, 3.55, 0.0), md)
+	_main_rotor = Node3D.new()
+	_main_rotor.name = "MainRotor"
+	_main_rotor.position = Vector3(0, 4.08, 0.0)
+	hull.add_child(_main_rotor)
+	_add_box(_main_rotor, Vector3(0.18, 0.055, 6.4), Vector3.ZERO, md)
+	_add_box(_main_rotor, Vector3(6.4, 0.055, 0.18), Vector3.ZERO, md)
+	_add_cyl(_main_rotor, 0.16, 0.16, Vector3.ZERO, IWMaterials.olive_light())
+	# Tail rotor.
+	_tail_rotor = Node3D.new()
+	_tail_rotor.name = "TailRotor"
+	_tail_rotor.position = Vector3(0, 2.72, -4.35)
+	hull.add_child(_tail_rotor)
+	_add_box(_tail_rotor, Vector3(1.45, 0.05, 0.10), Vector3.ZERO, md)
+	_add_box(_tail_rotor, Vector3(0.10, 0.05, 1.45), Vector3.ZERO, md)
+	# Forward gun and underwing rocket pods.
+	_add_box(turret, Vector3(0.58, 0.42, 0.72), Vector3(0, 2.10, 1.55), md)
+	_add_cyl(gun, 0.075, 1.65, Vector3(0, 2.05, 2.28), IWMaterials.olive_dark(), deg_to_rad(90))
+	for x in [-1.05, 1.05]:
+		_add_box(turret, Vector3(0.28, 0.18, 1.55), Vector3(x, 1.98, 0.55), md)
+		for z in [0.05, 0.45, 0.85]:
+			_add_cyl(turret, 0.075, 0.28, Vector3(x, 1.88, z + 0.05), IWMaterials.rubber(), deg_to_rad(90))
+	muzzle.position = Vector3(0, 2.05, 3.12)
+
+
+func _build_plane() -> void:
+	# Compact fighter/attack-aircraft silhouette for server catalog entries
+	# whose class is plane/aircraft; never fall back to a tank mesh.
+	var m := _mat()
+	var md := _mat_dark()
+	var glass := IWMaterials.canopy()
+	_add_box(hull, Vector3(1.0, 0.72, 4.8), Vector3(0, 3.6, 0), m)
+	_add_box(hull, Vector3(0.72, 0.52, 1.55), Vector3(0, 3.98, 0.65), glass)
+	_add_box(hull, Vector3(6.2, 0.18, 1.15), Vector3(0, 3.45, -0.15), m)
+	_add_box(hull, Vector3(0.32, 0.75, 1.65), Vector3(0, 4.0, -1.7), md)
+	_add_box(hull, Vector3(0.22, 1.15, 1.05), Vector3(0, 4.15, -2.0), md)
+	_add_box(hull, Vector3(0.55, 0.20, 1.65), Vector3(-1.9, 3.35, 0.65), md)
+	_add_box(hull, Vector3(0.55, 0.20, 1.65), Vector3(1.9, 3.35, 0.65), md)
+	for x in [-1.65, 1.65]:
+		_add_cyl(hull, 0.16, 0.9, Vector3(x, 3.05, 0.3), md, deg_to_rad(90))
+	_add_cyl(gun, 0.045, 1.2, Vector3(0, 3.58, 2.7), md, deg_to_rad(90))
+	muzzle.position = Vector3(0, 3.58, 3.35)
