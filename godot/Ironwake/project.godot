@@ -77,4 +77,4 @@ globals/quality_tier=1
 permissions/internet=true
 permissions/access_network_state=true
 
-; CI trigger: Android APK build baseline.
+; CI trigger: final APK build.
