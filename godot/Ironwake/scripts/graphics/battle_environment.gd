@@ -14,23 +14,23 @@ func build() -> void:
 
 func _setup_environment() -> void:
 	var sky_mat := ProceduralSkyMaterial.new()
-	sky_mat.sky_top_color = Color(0.10, 0.22, 0.38)
-	sky_mat.sky_horizon_color = Color(0.72, 0.63, 0.48)
-	sky_mat.ground_bottom_color = Color(0.09, 0.10, 0.08)
-	sky_mat.ground_horizon_color = Color(0.42, 0.37, 0.28)
+	sky_mat.sky_top_color = Color(0.18, 0.34, 0.56)
+	sky_mat.sky_horizon_color = Color(0.86, 0.75, 0.58)
+	sky_mat.ground_bottom_color = Color(0.16, 0.17, 0.13)
+	sky_mat.ground_horizon_color = Color(0.52, 0.46, 0.34)
 	sky_mat.sun_angle_max = 18.0
 	sky_mat.sun_curve = 0.035
-	sky_mat.sky_energy_multiplier = 0.95
+	sky_mat.sky_energy_multiplier = 1.15
 	var sky := Sky.new()
 	sky.sky_material = sky_mat
 	var env := Environment.new()
 	env.background_mode = Environment.BG_SKY
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_sky_contribution = 0.72
-	env.ambient_light_energy = 0.70
+	env.ambient_light_sky_contribution = 0.88
+	env.ambient_light_energy = 0.95
 	env.tonemap_mode = Environment.TONE_MAPPER_ACES
-	env.tonemap_exposure = 1.0
+	env.tonemap_exposure = 1.18
 	env.glow_enabled = true
 	env.glow_intensity = 0.32
 	env.glow_bloom = 0.10
@@ -40,7 +40,7 @@ func _setup_environment() -> void:
 	env.glow_levels_4 = 0.35
 	env.fog_enabled = true
 	env.fog_light_color = Color(0.48, 0.51, 0.50)
-	env.fog_density = 0.00070
+	env.fog_density = 0.00042
 	env.fog_aerial_perspective = 0.78
 	env.adjustment_enabled = true
 	env.adjustment_saturation = 1.06
@@ -51,7 +51,7 @@ func _setup_environment() -> void:
 	var sun := DirectionalLight3D.new()
 	sun.name = "Sun"
 	sun.rotation_degrees = Vector3(-48.0, 34.0, 0.0)
-	sun.light_energy = 1.55
+	sun.light_energy = 1.75
 	sun.light_color = Color(1.0, 0.90, 0.74)
 	sun.shadow_enabled = true
 	sun.shadow_blur = 0.65
@@ -63,7 +63,7 @@ func _setup_environment() -> void:
 	add_child(sun)
 	var fill := DirectionalLight3D.new()
 	fill.rotation_degrees = Vector3(-18.0, -125.0, 0.0)
-	fill.light_energy = 0.24
+	fill.light_energy = 0.38
 	fill.light_color = Color(0.48, 0.62, 0.78)
 	add_child(fill)
 
