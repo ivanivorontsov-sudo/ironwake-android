@@ -1,27 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Keep usesCleartextTraffic AND an explicit MAIN/LAUNCHER activity.
-     An empty <application> previously wiped Unity's generated activity. -->
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
-  <application
-      android:usesCleartextTraffic="true"
-      tools:replace="android:usesCleartextTraffic"
-      tools:targetApi="28">
-    <activity
-        android:name="com.unity3d.player.UnityPlayerActivity"
-        android:exported="true"
-        android:theme="@style/UnityThemeSelector"
-        android:screenOrientation="fullSensor"
-        android:launchMode="singleTask"
-        android:configChanges="mcc|mnc|locale|touchscreen|keyboard|keyboardHidden|navigation|orientation|screenLayout|uiMode|screenSize|smallestScreenSize|fontScale|layoutDirection|density"
-        android:resizeableActivity="false"
-        android:hardwareAccelerated="false"
-        tools:node="merge">
-      <intent-filter>
-        <action android:name="android.intent.action.MAIN" />
-        <category android:name="android.intent.category.LAUNCHER" />
-      </intent-filter>
-      <meta-data android:name="unityplayer.UnityActivity" android:value="true" />
-    </activity>
-  </application>
+<!-- Do not declare <application> here: an empty/partial application node
+     replaced Unity's generated MAIN/LAUNCHER activity (no icon / no Open).
+     Cleartext HTTP is enabled via PlayerSettings insecureHttpOption. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <uses-permission android:name="android.permission.INTERNET" />
+  <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 </manifest>
