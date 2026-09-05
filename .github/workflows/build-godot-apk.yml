@@ -9,37 +9,30 @@ on:
       - "godot/Ironwake/**"
       - ".github/workflows/build-godot-apk.yml"
 
-permissions:
-  contents: read
-
 jobs:
   build-apk:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     env:
-      GODOT_ROOT: "${{ github.workspace }}/godot-bin"
-      PROJECT_DIR: "${{ github.workspace }}/godot/Ironwake"
-      TEMPLATES_DIR: "${{ github.workspace }}/godot-templates"
-      ANDROID_SDK_ROOT: "${{ github.workspace }}/android-sdk"
-      ANDROID_HOME: "${{ github.workspace }}/android-sdk"
-      JAVA_HOME: "/usr/lib/jvm/java-17-openjdk-amd64"
+      GODOT_ROOT: ${{ github.workspace }}/godot-bin
+      PROJECT_DIR: ${{ github.workspace }}/godot/Ironwake
+      TEMPLATES_DIR: ${{ github.workspace }}/godot-templates
+      ANDROID_SDK_ROOT: ${{ github.workspace }}/android-sdk
+      ANDROID_HOME: ${{ github.workspace }}/android-sdk
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install JDK 17
-        run: |
-          set -euxo pipefail
-          sudo apt-get update
-          sudo apt-get install -y openjdk-17-jdk unzip rsync
-          java -version
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
 
       - name: Download official Godot 4.4 Linux binary
         run: |
           set -euxo pipefail
           mkdir -p "$GODOT_ROOT"
-          curl -fL --retry 5 --retry-delay 2 --connect-timeout 20 --max-time 180 --retry-all-errors \
-            -o /tmp/godot.zip \
-            "https://github.com/godotengine/godot/releases/download/4.4-stable/Godot_v4.4-stable_linux.x86_64.zip"
+          curl -fL --retry 5 --retry-delay 2 --connect-timeout 20 --max-time 300 --retry-all-errors -o /tmp/godot.zip "https://github.com/godotengine/godot/releases/download/4.4-stable/Godot_v4.4-stable_linux.x86_64.zip"
           unzip -q /tmp/godot.zip -d "$GODOT_ROOT"
           mv "$GODOT_ROOT/Godot_v4.4-stable_linux.x86_64" "$GODOT_ROOT/godot"
           chmod +x "$GODOT_ROOT/godot"
@@ -49,31 +42,21 @@ jobs:
         run: |
           set -euxo pipefail
           mkdir -p "$TEMPLATES_DIR"
-          curl -fL --retry 5 --retry-delay 2 --connect-timeout 20 --max-time 300 --retry-all-errors \
-            -o /tmp/export-templates.tpz \
-            "https://github.com/godotengine/godot/releases/download/4.4-stable/Godot_v4.4-stable_export_templates.tpz"
-          unzip -q /tmp/export-templates.tpz -d "$TEMPLATES_DIR"
+          curl -fL --retry 5 --retry-delay 2 --connect-timeout 20 --max-time 600 --retry-all-errors -o /tmp/templates.tpz "https://github.com/godotengine/godot/releases/download/4.4-stable/Godot_v4.4-stable_export_templates.tpz"
+          unzip -q /tmp/templates.tpz -d "$TEMPLATES_DIR"
           test -s "$TEMPLATES_DIR/templates/android_debug.apk"
-          test -s "$TEMPLATES_DIR/templates/android_release.apk"
-          test -s "$TEMPLATES_DIR/templates/android_source.zip"
 
-      - name: Bootstrap Android SDK command-line tools
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android platform and build tools
+        run: sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Configure Godot
         run: |
           set -euxo pipefail
-          mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools"
-          curl -fL --retry 5 --retry-delay 2 --connect-timeout 20 --max-time 180 --retry-all-errors \
-            -o /tmp/cmdline-tools.zip \
-            "https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip"
-          unzip -q /tmp/cmdline-tools.zip -d "$ANDROID_SDK_ROOT/cmdline-tools"
-          mv "$ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools" "$ANDROID_SDK_ROOT/cmdline-tools/latest"
-          export PATH="$JAVA_HOME/bin:$PATH"
-          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
-          "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "platforms;android-35" "build-tools;35.0.0"
-
-      - name: Configure Godot Android paths
-        run: |
-          set -euxo pipefail
-          mkdir -p "$HOME/.config/godot"
+          mkdir -p "$HOME/.config/godot" "$HOME/.local/share/godot/export_templates/4.4.stable"
+          rsync -a "$TEMPLATES_DIR/templates/" "$HOME/.local/share/godot/export_templates/4.4.stable/"
           cat > "$HOME/.config/godot/editor_settings-4.tres" <<EOF
 [gd_resource type="EditorSettings" format=3]
 
@@ -81,36 +64,25 @@ jobs:
 export/android/android_sdk_path = "$ANDROID_SDK_ROOT"
 export/android/java_sdk_path = "$JAVA_HOME"
 EOF
+          test -s "$HOME/.local/share/godot/export_templates/4.4.stable/android_debug.apk"
 
-      - name: Install Godot export templates
-        run: |
-          set -euxo pipefail
-          DEST="$HOME/.local/share/godot/export_templates/4.4.stable"
-          mkdir -p "$DEST"
-          rsync -a "$TEMPLATES_DIR/templates/" "$DEST/"
-          test -s "$DEST/android_debug.apk"
-
-      - name: Import and validate project
-        run: |
-          set -euxo pipefail
-          "$GODOT_ROOT/godot" --headless --path "$PROJECT_DIR" --editor --import
-          "$GODOT_ROOT/godot" --headless --path "$PROJECT_DIR" --editor --quit-after 5
-
-      - name: Verify Android export configuration
+      - name: Verify export preset
         run: |
           set -euxo pipefail
           grep -q '^name="Android"$' "$PROJECT_DIR/export_presets.cfg"
           grep -q '^platform="Android"$' "$PROJECT_DIR/export_presets.cfg"
           grep -q 'package/unique_name="org.ivanivorontsov.ironwake"' "$PROJECT_DIR/export_presets.cfg"
 
-      - name: Export debug APK
+      - name: Import and export debug APK
         run: |
           set -euxo pipefail
-          mkdir -p "$GITHUB_WORKSPACE/build"
+          "$GODOT_ROOT/godot" --headless --path "$PROJECT_DIR" --editor --import
+          "$GODOT_ROOT/godot" --headless --path "$PROJECT_DIR" --editor --quit-after 5
+          mkdir -p build
           "$GODOT_ROOT/godot" --headless --path "$PROJECT_DIR" --editor --export-debug "Android" "$GITHUB_WORKSPACE/build/ironwake-debug.apk"
-          test -s "$GITHUB_WORKSPACE/build/ironwake-debug.apk"
-          unzip -t "$GITHUB_WORKSPACE/build/ironwake-debug.apk" >/dev/null
-          file "$GITHUB_WORKSPACE/build/ironwake-debug.apk"
+          test -s build/ironwake-debug.apk
+          unzip -t build/ironwake-debug.apk >/dev/null
+          ls -lh build/ironwake-debug.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
@@ -119,6 +91,3 @@ EOF
           path: build/ironwake-debug.apk
           if-no-files-found: error
           retention-days: 14
-
-# Build trigger: verify current branch head only.
-# Fresh retry trigger: 2026-09-05.
