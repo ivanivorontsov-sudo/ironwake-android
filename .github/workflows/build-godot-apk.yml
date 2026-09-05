@@ -55,6 +55,7 @@ jobs:
             "https://github.com/godotengine/godot/releases/download/4.4-stable/Godot_v4.4-stable_export_templates.tpz"
           unzip -q /tmp/export-templates.tpz -d "$TEMPLATES_DIR"
           test -s "$TEMPLATES_DIR/templates/android_debug.apk"
+          test -s "$TEMPLATES_DIR/templates/android_release.apk"
 
       - name: Bootstrap Android SDK command-line tools
         run: |
@@ -69,7 +70,7 @@ jobs:
           yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
           "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 
-      - name: Configure Godot editor settings
+      - name: Configure Godot Android paths
         run: |
           set -euxo pipefail
           mkdir -p "$HOME/.config/godot"
@@ -80,17 +81,14 @@ jobs:
 export/android/android_sdk_path = "$ANDROID_SDK_ROOT"
 export/android/java_sdk_path = "$JAVA_HOME"
 EOF
-          cat "$HOME/.config/godot/editor_settings-4.tres"
 
-      - name: Install Godot export templates
+      - name: Install Godot Android build templates
         run: |
           set -euxo pipefail
-          DEST="$HOME/.local/share/godot/export_templates/4.4.stable"
-          mkdir -p "$DEST"
-          rsync -a "$TEMPLATES_DIR/templates/" "$DEST/"
-          test -s "$DEST/android_debug.apk"
-          test -s "$DEST/android_release.apk"
-          ls -lh "$DEST/android_debug.apk" "$DEST/android_release.apk"
+          mkdir -p "$PROJECT_DIR/android/build-templates"
+          rsync -a "$TEMPLATES_DIR/templates/android/" "$PROJECT_DIR/android/build-templates/"
+          test -d "$PROJECT_DIR/android/build-templates"
+          find "$PROJECT_DIR/android/build-templates" -maxdepth 2 -type f -print | head -40
 
       - name: Import and validate project
         run: |
