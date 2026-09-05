@@ -90,3 +90,5 @@ permissions/access_network_state=true
 ; retry Android SDK
 
 ; retry after sdkmanager fix
+
+; final CI retry
