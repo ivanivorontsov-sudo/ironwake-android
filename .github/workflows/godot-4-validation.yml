@@ -1,0 +1,27 @@
+name: Godot 4 syntax and scene validation
+on:
+  push:
+    paths:
+      - "godot/**"
+      - ".github/workflows/godot-4-validation.yml"
+  pull_request:
+    paths:
+      - "godot/**"
+      - ".github/workflows/godot-4-validation.yml"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Godot 4
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y godot4
+      - name: Validate project
+        working-directory: godot/Ironwake
+        run: |
+          godot4 --headless --editor --path . --quit-after 5
+          test -f project.godot
+          test -f scenes/battle.tscn
+          echo "Godot 4 project validation OK"
