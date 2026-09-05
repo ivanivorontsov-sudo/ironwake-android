@@ -10,9 +10,71 @@ on:
       - ".github/workflows/godot-project-check.yml"
 jobs:
   check:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
-      - run: |
-          echo "IRONWAKE build workflow runner OK"
-          git rev-parse HEAD
+
+      - name: Install prerequisites
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          sudo apt-get install -y openjdk-17-jdk unzip rsync
+
+      - name: Download official Godot 4.4 Linux binary
+        run: |
+          set -euxo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/godot-bin"
+          curl -fL --retry 5 --retry-all-errors -o /tmp/godot.zip "https://github.com/godotengine/godot/releases/download/4.4-stable/Godot_v4.4-stable_linux.x86_64.zip"
+          unzip -q /tmp/godot.zip -d "$GITHUB_WORKSPACE/godot-bin"
+          mv "$GITHUB_WORKSPACE/godot-bin/Godot_v4.4-stable_linux.x86_64" "$GITHUB_WORKSPACE/godot-bin/godot"
+          chmod +x "$GITHUB_WORKSPACE/godot-bin/godot"
+          "$GITHUB_WORKSPACE/godot-bin/godot" --version
+
+      - name: Download official Godot 4.4 Android export templates
+        run: |
+          set -euxo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/godot-templates"
+          curl -fL --retry 5 --retry-all-errors -o /tmp/templates.tpz "https://github.com/godotengine/godot/releases/download/4.4-stable/Godot_v4.4-stable_export_templates.tpz"
+          unzip -q /tmp/templates.tpz -d "$GITHUB_WORKSPACE/godot-templates"
+          test -s "$GITHUB_WORKSPACE/godot-templates/templates/android_debug.apk"
+
+      - name: Bootstrap Android SDK
+        run: |
+          set -euxo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/android-sdk/cmdline-tools"
+          curl -fL --retry 5 --retry-all-errors -o /tmp/cmdline.zip "https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip"
+          unzip -q /tmp/cmdline.zip -d "$GITHUB_WORKSPACE/android-sdk/cmdline-tools"
+          mv "$GITHUB_WORKSPACE/android-sdk/cmdline-tools/cmdline-tools" "$GITHUB_WORKSPACE/android-sdk/cmdline-tools/latest"
+          export PATH="$GITHUB_WORKSPACE/android-sdk/cmdline-tools/latest/bin:$GITHUB_WORKSPACE/android-sdk/platform-tools:$JAVA_HOME/bin:$PATH"
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+
+      - name: Configure Godot Android paths
+        run: |
+          set -euxo pipefail
+          mkdir -p "$HOME/.config/godot" "$HOME/.local/share/godot/export_templates/4.4.stable"
+          rsync -a "$GITHUB_WORKSPACE/godot-templates/templates/" "$HOME/.local/share/godot/export_templates/4.4.stable/"
+          printf '%s\n' '[gd_resource type="EditorSettings" format=3]' '' '[resource]' 'export/android/android_sdk_path = "'$GITHUB_WORKSPACE'/android-sdk"' 'export/android/java_sdk_path = "'$JAVA_HOME'"' > "$HOME/.config/godot/editor_settings-4.tres"
+          test -s "$HOME/.local/share/godot/export_templates/4.4.stable/android_debug.apk"
+
+      - name: Import and export Android debug APK
+        run: |
+          set -euxo pipefail
+          grep -q '^name="Android"$' godot/Ironwake/export_presets.cfg
+          grep -q 'package/unique_name="org.ivanivorontsov.ironwake"' godot/Ironwake/export_presets.cfg
+          grep -q 'gradle_build/use_gradle_build=false' godot/Ironwake/export_presets.cfg
+          "$GITHUB_WORKSPACE/godot-bin/godot" --headless --path godot/Ironwake --editor --import
+          "$GITHUB_WORKSPACE/godot-bin/godot" --headless --path godot/Ironwake --editor --quit-after 5
+          mkdir -p build
+          "$GITHUB_WORKSPACE/godot-bin/godot" --headless --path godot/Ironwake --editor --export-debug "Android" "$GITHUB_WORKSPACE/build/ironwake-debug.apk"
+          test -s build/ironwake-debug.apk
+          unzip -t build/ironwake-debug.apk >/dev/null
+          ls -lh build/ironwake-debug.apk
+
+      - name: Upload ironwake-android-apk
+        uses: actions/upload-artifact@v4
+        with:
+          name: ironwake-android-apk
+          path: build/ironwake-debug.apk
+          if-no-files-found: error
+          retention-days: 14
