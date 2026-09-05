@@ -77,4 +77,4 @@ globals/quality_tier=1
 permissions/internet=true
 permissions/access_network_state=true
 
-; CI trigger: Android APK build uses official Godot 4.4 artifacts.
+; CI trigger: Android APK build baseline.
