@@ -88,3 +88,5 @@ permissions/access_network_state=true
 ; final APK retry
 
 ; retry Android SDK
+
+; retry after sdkmanager fix
