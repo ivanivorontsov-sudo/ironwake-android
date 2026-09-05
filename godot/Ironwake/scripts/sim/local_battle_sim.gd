@@ -12,8 +12,10 @@ signal match_ended(winner: String)
 var arena_half: float = 110.0
 var match_time_limit: float = 360.0
 var blue_bots: int = 0
-var red_bots: int = 1
+var red_bots: int = 2
 var bot_difficulty: float = 0.55
+const MIN_BOTS := 1
+const MAX_BOTS := 8
 
 var units: Dictionary = {}  # id -> SimUnit
 var shells: Array = []  # Dictionary shells
@@ -54,6 +56,7 @@ func start_local_battle(player_id: String, callsign: String, vehicle_id: String,
 
 	_bots = LocalBotAI.new(self)
 	_bots.fill_room(blue_bots, red_bots)
+	_emit({"type": "bot_count", "count": red_bots})
 	_emit({"type": "join", "id": player_id, "callsign": callsign, "team": team, "vehicleId": vehicle_id})
 	_push_state()
 	print("[LocalBattleSim] started local=%s vehicle=%s units=%d obstacles=%d" % [player_id, vehicle_id, units.size(), obstacles.size()])
@@ -99,11 +102,11 @@ func find_nearest_enemy(self_id: String, team: String) -> String:
 
 
 func set_bot_count(count: int) -> void:
+	# Keep at least one enemy so changing the setting can never end the match
+	# and freeze the controller. Rebuild only bot units; the human unit/input stays intact.
+	var desired := clampi(count, MIN_BOTS, MAX_BOTS)
+	red_bots = desired
 	blue_bots = 0
-	red_bots = clampi(count, 0, 1)
-	if _bots == null:
-		_bots = LocalBotAI.new(self)
-	# Remove only local AI units; never touch the human player.
 	var remove_ids: Array[String] = []
 	for id_any in units.keys():
 		var id := str(id_any)
@@ -111,6 +114,8 @@ func set_bot_count(count: int) -> void:
 			remove_ids.append(id)
 	for id in remove_ids:
 		units.erase(id)
+	if _bots == null:
+		_bots = LocalBotAI.new(self)
 	_bots.fill_room(blue_bots, red_bots)
 	_emit({"type": "bot_count", "count": red_bots})
 	_push_state()
