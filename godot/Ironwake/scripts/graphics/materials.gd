@@ -118,7 +118,8 @@ static func dirt_ground() -> StandardMaterial3D:
 	var diff: Texture2D = load("res://assets/textures/aerial_grass_rock_diff_1k.jpg")
 	var nor: Texture2D = load("res://assets/textures/aerial_grass_rock_nor_gl_1k.jpg")
 	var rough: Texture2D = load("res://assets/textures/aerial_grass_rock_rough_1k.jpg")
-	m.albedo_color = Color(0.50, 0.45, 0.34)
+	m.albedo_color = Color(0.72, 0.64, 0.47)
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL
 	if diff:
 		m.albedo_texture = diff
 		m.uv1_scale = Vector3(20, 20, 20)
@@ -128,7 +129,10 @@ static func dirt_ground() -> StandardMaterial3D:
 		m.normal_scale = 1.05
 	if rough:
 		m.roughness_texture = rough
-	m.roughness = 0.92
+	m.roughness = 0.84
+	m.emission_enabled = true
+	m.emission = Color(0.045, 0.038, 0.025)
+	m.emission_energy_multiplier = 0.45
 	m.metallic = 0.0
 	return m
 
