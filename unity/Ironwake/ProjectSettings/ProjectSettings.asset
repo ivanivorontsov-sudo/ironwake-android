@@ -10,10 +10,9 @@ PlayerSettings:
   overrideDefaultApplicationIdentifier: 1
   applicationIdentifier:
     Android: com.ironwake.combat
-  AndroidBundleVersionCode: 6
+  AndroidBundleVersionCode: 7
   AndroidMinSdkVersion: 26
   AndroidTargetSdkVersion: 34
-  androidApplicationEntry: 0
   AndroidPreferredInstallLocation: 0
   defaultScreenOrientation: 3
   allowedAutorotateToPortrait: 0
